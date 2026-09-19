@@ -1,0 +1,266 @@
+# Functional Invariants
+
+This is the source of truth for MVP protocol behavior. Every automated test that protects product behavior should reference one or more invariant IDs from this document.
+
+## Scope
+
+The MVP is a graph-backed communication platform for representative agents. Agents represent clients and principals, maintain graph edges, and run structured negotiations over established agent-agent connections.
+
+## Entity Invariants
+
+### INV-E-001: Agents Are Graph Nodes
+
+An agent is a graph node that can hold agent-agent edges and representation edges.
+
+Protected by:
+
+- Planned: `test_create_agent_persists_agent_node`
+- `test_agent_node_uses_agent_type`
+- `test_sql_repositories_round_trip_core_graph_records`
+- `test_storage_schema_declares_mvp_tables`
+
+### INV-E-002: Clients And Principals Are Distinct Node Types
+
+Clients/jobseekers and principals/hirers are graph nodes distinct from agents.
+
+Protected by:
+
+- Planned: `test_client_and_principal_node_types_are_distinct`
+- `test_client_and_principal_node_types_are_distinct`
+- `test_core_table_columns_match_repository_contracts`
+
+### INV-E-003: Representation Edges Are Not Agent-Agent Edges
+
+An agent-client or agent-principal representation edge is a different relationship type from an agent-agent communication edge.
+
+Protected by:
+
+- Planned: `test_representation_edges_are_separate_from_agent_connections`
+- `test_representation_edges_are_separate_from_agent_connections`
+- `test_sql_repositories_round_trip_core_graph_records`
+
+## Edge Invariants
+
+### INV-G-001: Agent-Agent Communication Requires An Active Edge
+
+An agent may request a negotiation with another agent only when there is an active agent-agent edge between them.
+
+Protected by:
+
+- Planned: `test_request_negotiation_requires_active_agent_connection`
+- `test_request_negotiation_requires_active_agent_connection`
+- `test_request_negotiation_service_requires_active_connection`
+- `test_agent_connections_are_directional`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-G-002: Inactive Edges Preserve History
+
+Setting an edge inactive must not delete prior messages, negotiations, or events.
+
+Protected by:
+
+- Planned: `test_inactive_edge_preserves_history`
+
+### INV-G-003: Edge State Is A Snapshot, Events Are The Record
+
+Current edge state may be stored for retrieval, but state changes must also be represented by append-only events.
+
+Protected by:
+
+- Planned: `test_edge_state_change_appends_event`
+
+## Negotiation Protocol Invariants
+
+### INV-N-001: Negotiations Are First-Class Records
+
+A negotiation is its own record. It is not only an edge state or a message thread.
+
+Protected by:
+
+- Planned: `test_request_negotiation_creates_negotiation_record`
+- `test_open_negotiation_request_creates_requested_state`
+- `test_request_negotiation_service_creates_record_and_event`
+- `test_sql_repositories_round_trip_negotiation_and_events_in_order`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-002: Negotiation Starts Requested
+
+An `open_negotiation_request` creates a negotiation in `requested` state.
+
+Protected by:
+
+- Planned: `test_open_negotiation_request_creates_requested_negotiation`
+- `test_open_negotiation_request_creates_requested_state`
+- `test_request_negotiation_service_creates_record_and_event`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-003: Requested Negotiation May Be Accepted Or Rejected
+
+A negotiation in `requested` state may transition to `open` through accept or `closed` through reject.
+
+Protected by:
+
+- `test_accept_requested_negotiation_opens`
+- `test_reject_requested_negotiation_closes`
+- `test_accept_negotiation_service_opens_requested_negotiation`
+- `test_reject_negotiation_service_closes_requested_negotiation`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-004: Messages Require Open Negotiation
+
+Free-form negotiation messages are valid only while the negotiation is `open`.
+
+Protected by:
+
+- `test_message_keeps_open_negotiation_open`
+- `test_message_requires_open_negotiation`
+- `test_send_message_service_appends_message_event_for_open_negotiation`
+- `test_send_message_service_rejects_non_open_negotiation`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-005: Match Acceptance Requires Match Proposal
+
+`match_accepted` is valid only after a `match_proposed` event in the same open negotiation.
+
+Protected by:
+
+- `test_match_proposal_keeps_negotiation_open`
+- `test_match_acceptance_requires_prior_proposal`
+- `test_match_acceptance_closes_as_matched_after_proposal`
+- `test_propose_match_service_appends_event_for_open_negotiation`
+- `test_accept_match_service_requires_prior_proposal`
+- `test_accept_match_service_marks_negotiation_matched`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-006: Matched And Closed Are Terminal
+
+No protocol action may reopen or mutate a negotiation after it reaches `matched` or `closed`, except append-only audit/read-model events that do not change status.
+
+Protected by:
+
+- Planned: `test_closed_negotiation_rejects_messages`
+- Planned: `test_matched_negotiation_rejects_close`
+- `test_closed_negotiation_rejects_messages`
+- `test_matched_negotiation_rejects_close`
+- `test_close_negotiation_service_closes_open_negotiation`
+
+## Event And History Invariants
+
+### INV-H-001: Every Protocol Action Appends An Event
+
+Every protocol action must create an append-only event with actor, timestamp, negotiation or edge reference, type, and payload.
+
+Protected by:
+
+- Planned: `test_protocol_action_appends_event`
+- `test_request_negotiation_service_creates_record_and_event`
+- `test_accept_negotiation_service_opens_requested_negotiation`
+- `test_reject_negotiation_service_closes_requested_negotiation`
+- `test_send_message_service_appends_message_event_for_open_negotiation`
+- `test_propose_match_service_appends_event_for_open_negotiation`
+- `test_accept_match_service_marks_negotiation_matched`
+- `test_close_negotiation_service_closes_open_negotiation`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-H-002: Event History Is Append-Only
+
+Existing events must not be updated or deleted through application services.
+
+Protected by:
+
+- Planned: `test_events_are_append_only`
+
+### INV-H-003: Retrieval APIs Return Structured History
+
+History retrieval must return structured records, not only concatenated text.
+
+Protected by:
+
+- Planned: `test_retrieve_negotiation_history_returns_structured_events`
+- `test_retrieve_negotiation_history_returns_structured_events`
+- `test_sql_repositories_round_trip_negotiation_and_events_in_order`
+- `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+## Capacity Invariants
+
+### INV-C-001: Open Negotiation Limit Is Enforced
+
+An agent cannot exceed its configured maximum open negotiations.
+
+Protected by:
+
+- Planned: `test_open_negotiation_limit_enforced`
+- `test_open_negotiation_capacity_allows_below_limit`
+- `test_open_negotiation_capacity_rejects_at_limit`
+- `test_request_negotiation_service_rejects_when_actor_at_capacity`
+- `test_sql_negotiation_repository_counts_requested_and_open_as_active_load`
+
+### INV-C-002: Capacity Rejections Are Recorded
+
+A protocol action rejected due to capacity must append an event explaining the rejection.
+
+Protected by:
+
+- Planned: `test_capacity_rejection_appends_event`
+- `test_request_negotiation_service_rejects_when_actor_at_capacity`
+
+## CLI Invariants
+
+### INV-CLI-001: CLI Commands Return Structured JSON
+
+Human-first CLI commands must return structured JSON so outputs can be inspected by humans and reused by scripts or future agent tools.
+
+Protected by:
+
+- `test_cli_runs_full_negotiation_lifecycle`
+
+### INV-CLI-002: CLI Uses The Same Application Services As Other Entrypoints
+
+CLI commands must call the same application services and SQL repositories used by tests and future agent tools, rather than implementing separate protocol behavior.
+
+Protected by:
+
+- `test_cli_runs_full_negotiation_lifecycle`
+
+## Test Traceability
+
+| Test | Invariants |
+| --- | --- |
+| `test_domain_smoke` | INV-N-004 |
+| `test_open_negotiation_request_creates_requested_state` | INV-N-001, INV-N-002 |
+| `test_accept_requested_negotiation_opens` | INV-N-003 |
+| `test_reject_requested_negotiation_closes` | INV-N-003 |
+| `test_message_keeps_open_negotiation_open` | INV-N-004 |
+| `test_message_requires_open_negotiation` | INV-N-004 |
+| `test_match_proposal_keeps_negotiation_open` | INV-N-005 |
+| `test_match_acceptance_requires_prior_proposal` | INV-N-005 |
+| `test_match_acceptance_closes_as_matched_after_proposal` | INV-N-005 |
+| `test_closed_negotiation_rejects_messages` | INV-N-006 |
+| `test_matched_negotiation_rejects_close` | INV-N-006 |
+| `test_agent_node_uses_agent_type` | INV-E-001 |
+| `test_client_and_principal_node_types_are_distinct` | INV-E-002 |
+| `test_representation_edges_are_separate_from_agent_connections` | INV-E-003 |
+| `test_request_negotiation_requires_active_agent_connection` | INV-G-001 |
+| `test_open_negotiation_capacity_allows_below_limit` | INV-C-001 |
+| `test_open_negotiation_capacity_rejects_at_limit` | INV-C-001 |
+| `test_request_negotiation_service_requires_active_connection` | INV-G-001 |
+| `test_request_negotiation_service_creates_record_and_event` | INV-N-001, INV-N-002, INV-H-001 |
+| `test_request_negotiation_service_rejects_when_actor_at_capacity` | INV-C-001, INV-C-002 |
+| `test_accept_negotiation_service_opens_requested_negotiation` | INV-N-003, INV-H-001 |
+| `test_reject_negotiation_service_closes_requested_negotiation` | INV-N-003, INV-H-001 |
+| `test_send_message_service_appends_message_event_for_open_negotiation` | INV-N-004, INV-H-001 |
+| `test_send_message_service_rejects_non_open_negotiation` | INV-N-004 |
+| `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-H-001 |
+| `test_accept_match_service_requires_prior_proposal` | INV-N-005 |
+| `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-H-001 |
+| `test_close_negotiation_service_closes_open_negotiation` | INV-N-006, INV-H-001 |
+| `test_retrieve_negotiation_history_returns_structured_events` | INV-H-003 |
+| `test_storage_schema_declares_mvp_tables` | INV-E-001 |
+| `test_agent_connections_are_directional` | INV-G-001 |
+| `test_core_table_columns_match_repository_contracts` | INV-E-002 |
+| `test_storage_schema_uses_check_constraints_for_domain_enums` | INV-E-001, INV-E-002, INV-N-002, INV-N-006 |
+| `test_sql_repositories_round_trip_core_graph_records` | INV-E-001, INV-E-003 |
+| `test_sql_negotiation_repository_counts_requested_and_open_as_active_load` | INV-C-001 |
+| `test_sql_repositories_round_trip_negotiation_and_events_in_order` | INV-N-001, INV-H-003 |
+| `test_sql_backed_negotiation_service_runs_full_lifecycle` | INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-001, INV-H-003 |
+| `test_cli_runs_full_negotiation_lifecycle` | INV-CLI-001, INV-CLI-002, INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-003 |

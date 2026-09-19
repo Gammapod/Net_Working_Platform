@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: net-working-platform
+Version: 0.1.0
+Summary: Graph-backed representative-agent communication MVP
+Requires-Python: >=3.11
+Requires-Dist: alembic>=1.13
+Requires-Dist: psycopg[binary]>=3.1
+Requires-Dist: sqlalchemy>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
