@@ -47,7 +47,7 @@ def test_openai_adapter_builds_schema_constrained_responses_request() -> None:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"defer","actor_agent_id":"agent_2","reason":"needs_more_information"}',
+                            "text": '{"action":"defer","actor_agent_id":"agent_2","negotiation_id":"","reason":"needs_more_information","body":""}',
                         }
                     ]
                 }
@@ -87,7 +87,7 @@ def test_openai_adapter_parses_schema_constrained_decision_text() -> None:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"accept_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not used"}',
+                            "text": '{"action":"accept_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not used","body":""}',
                         }
                     ]
                 }
@@ -104,6 +104,70 @@ def test_openai_adapter_parses_schema_constrained_decision_text() -> None:
 
     assert decision.action == LlmDecisionAction.ACCEPT_NEGOTIATION
     assert decision.payload == {"negotiation_id": "negotiation_1", "actor_agent_id": "agent_2"}
+
+
+def test_openai_adapter_normalizes_schema_constrained_message_decision() -> None:
+    """Protects INV-L-006."""
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"send_message","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"","body":"Can you clarify?"}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        opener=opener,
+    )
+
+    assert decision.action == LlmDecisionAction.SEND_MESSAGE
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "agent_2",
+        "body": "Can you clarify?",
+    }
+
+
+def test_openai_adapter_normalizes_schema_constrained_reject_decision() -> None:
+    """Protects INV-L-006."""
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"reject_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not proceeding","body":"provider-only"}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        opener=opener,
+    )
+
+    assert decision.action == LlmDecisionAction.REJECT_NEGOTIATION
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "agent_2",
+        "reason": "not proceeding",
+    }
 
 
 def test_openai_adapter_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:

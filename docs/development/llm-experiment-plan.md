@@ -89,18 +89,34 @@ What has been observed so far:
 
 ## Next: Multi-Turn Protocol Interactions
 
-Focus: open negotiations and discussion after a request is accepted.
+Focus: open negotiations and discussion after a request is accepted. These experiments should remain platform-neutral about decision quality. They test whether agents can keep using protocol actions over event history, not whether the platform agrees with their negotiation strategy.
 
-Candidate experiments:
+### Phase 1 Backlog: Longer Single-Negotiation Runs
 
-- Respond to an open negotiation message.
-- Ask for clarification when needed information is missing.
-- Propose a match after sufficient fit evidence.
-- Accept a match after a prior proposal.
-- Close a negotiation when fit fails.
-- Observe a short discussion that reaches yes/no.
+| ID | Priority | Experiment | Agents | Protocol Surface | Protocol/Context Outcome | What To Record | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| P1-1 | P1 | Clarification loop after accepted request | 2 agents | request, accept/reject/defer, negotiation message | After a request is accepted, both agents can read event history and append participant-authorized messages in order. | Whether each model sends a valid next action; whether message history remains sufficient for the next turn; any repeated or stale actions. | Completed once with `gpt-4o-mini`: two valid message turns |
+| P1-2 | P1 | Missing information over multiple rounds | 2 agents | request, negotiation message, defer | Context can carry unresolved questions and later answers without hidden state; agents can continue protocol-valid communication across at least 3 turns. | Whether agents ask/respond/defer/continue; whether they cite information present in events; whether execution blocks invalid state transitions. | Completed once with `gpt-4o-mini`: three valid message turns |
+| P1-3 | P1 | Close-and-stop behavior | 2 agents | request, negotiation message, close/reject where available | Once a negotiation is closed or rejected, later attempted messages or responses are rejected by protocol services. | Whether models attempt further actions after closure; validator/executor result; final event log. | Completed once with `gpt-4o-mini`: close executed; later message blocked |
+| P1-4 | P2 | Context-window resilience summary | 2 agents | request, negotiation message | After a longer event history, the context package still exposes enough recent/history information for valid next actions. | Number of turns before confusion/repetition; whether action references valid negotiation IDs; whether protocol events remain readable. | Completed once with `gpt-4o-mini`: valid close after 10 visible events |
 
-Success means models can operate over event history and choose valid next protocol actions without mutating closed or matched negotiations incorrectly.
+### Phase 2 Backlog: Multi-Agent Communication Runs
+
+| ID | Priority | Experiment | Agents | Protocol Surface | Protocol/Context Outcome | What To Record | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| P2-1 | P1 | Referral relay through an intermediary | 3 agents | request, negotiation message, multiple negotiations if needed | Agents can use protocol messages to relay information through an intermediary while each action remains participant-authorized in its own negotiation. | Whether agents confuse negotiation IDs or roles; whether intermediary context includes enough event history; whether non-participant actions are rejected. | Completed once with `gpt-4o-mini`: three valid relay messages, no negotiation ID confusion |
+| P2-2 | P2 | Parallel inbound requests to one agent | 3 agents | request, accept/reject/defer, capacity context | Capacity and active-load context remains clear when one agent has multiple active or requested negotiations. | How the observing agent allocates attention; whether actions target the intended negotiation; whether active-load counts stay correct. | Completed once with `gpt-4o-mini`: accepted each requested negotiation by correct ID |
+
+### Phase 3 Direction Decision Criteria
+
+Use the results of Phase 1 and Phase 2 to choose the next protocol surface:
+
+- If agents can communicate over multiple turns but lack counterparties, prioritize graph creation/discovery.
+- If agents communicate but cannot evaluate claims or trust, prioritize evidence-gathering and event-backed attestations.
+- If agents communicate and gather enough fit information but lack a terminal outcome, prioritize negotiation/match-discussion and match proposal/acceptance protocol.
+- If agents repeatedly confuse event history, negotiation IDs, or participant roles, keep investing in context packaging and protocol ergonomics before adding a new surface.
+
+Phase 1/2 are complete enough to move on when repeated runs show that actions validate, participant authorization holds, event logs remain coherent, and agents can continue from visible protocol history without relying on hidden state.
 
 ## Later: Graph Creation And Relationship Management
 

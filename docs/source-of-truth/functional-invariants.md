@@ -259,6 +259,8 @@ Protected by:
 
 - `test_execute_llm_accept_negotiation_decision_uses_service`
 - `test_execute_llm_reject_negotiation_decision_uses_service`
+- `test_execute_llm_send_message_decision_uses_service`
+- `test_execute_llm_close_negotiation_decision_uses_service`
 - `test_execute_llm_defer_decision_does_not_mutate_protocol_state`
 - `test_supervised_llm_accept_experiment_validates_executes_and_records_event`
 
@@ -358,6 +360,8 @@ Protected by:
 | `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
 | `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
+| `test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations` | INV-G-001, INV-N-003, INV-N-004, INV-H-001, INV-H-004 |
+| `test_parallel_inbound_scenario_exposes_two_requested_negotiations` | INV-G-001, INV-N-002, INV-H-001, INV-H-004, INV-C-001 |
 | `test_parse_llm_accept_negotiation_decision` | INV-L-001, INV-L-002 |
 | `test_parse_llm_decision_rejects_unknown_action` | INV-L-001 |
 | `test_parse_llm_decision_requires_action_specific_fields` | INV-L-002 |
@@ -365,18 +369,24 @@ Protected by:
 | `test_parse_llm_defer_decision` | INV-L-003 |
 | `test_execute_llm_accept_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
 | `test_execute_llm_reject_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
+| `test_execute_llm_send_message_decision_uses_service` | INV-L-004, INV-N-004, INV-H-001 |
+| `test_execute_llm_close_negotiation_decision_uses_service` | INV-L-004, INV-N-006, INV-H-001 |
 | `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
 | `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
 | `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
 | `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-H-004, INV-L-001, INV-L-002 |
+| `test_existing_agent_context_package_describes_open_negotiation_history` | INV-H-004, INV-L-001, INV-L-004 |
 | `test_context_only_package_can_describe_at_capacity_agent` | INV-H-004 |
 | `test_fit_context_package_describes_request_subject_and_fit_criteria` | INV-H-004 |
 | `test_fit_context_package_can_describe_bad_fit_request` | INV-H-004 |
 | `test_fit_context_package_can_describe_ambiguous_fit_request` | INV-H-004 |
 | `test_execute_decision_against_existing_scenario_reuses_prepared_database` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
 | `test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate` | INV-L-003, INV-L-004 |
+| `test_execute_send_message_against_existing_open_scenario_appends_message` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004, INV-N-004 |
 | `test_llm_decision_json_schema_describes_supported_actions` | INV-L-005 |
 | `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-L-005 |
 | `test_openai_adapter_builds_schema_constrained_responses_request` | INV-L-006 |
 | `test_openai_adapter_parses_schema_constrained_decision_text` | INV-L-006 |
+| `test_openai_adapter_normalizes_schema_constrained_message_decision` | INV-L-006 |
+| `test_openai_adapter_normalizes_schema_constrained_reject_decision` | INV-L-006 |
 | `test_openai_adapter_requires_api_key` | INV-L-006 |

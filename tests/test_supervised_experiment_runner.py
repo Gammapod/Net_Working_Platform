@@ -4,8 +4,10 @@ from pathlib import Path
 
 from scripts.dev.run_supervised_llm_experiment import (
     build_context_package,
+    build_existing_agent_context_package,
     build_fit_context_package,
     execute_decision_against_existing_scenario,
+    prepare_open_negotiation_scenario,
     run_supervised_experiment,
 )
 
@@ -18,7 +20,13 @@ def test_context_only_package_outputs_provider_neutral_prompt_without_execution(
     assert result["scenario"]["name"] == "inbound_request"
     assert result["contract"] == {
         "path": "docs/source-of-truth/llm-decision-contract.md",
-        "executor_supported_actions": ["accept_negotiation", "reject_negotiation", "defer"],
+        "executor_supported_actions": [
+            "accept_negotiation",
+            "reject_negotiation",
+            "send_message",
+            "close_negotiation",
+            "defer",
+        ],
     }
     assert result["response_format"] == {
         "type": "json_schema",
@@ -34,6 +42,33 @@ def test_context_only_package_outputs_provider_neutral_prompt_without_execution(
     assert result["event_log_source"] == "protocol_events"
     assert [event["type"] for event in result["structured_event_log"]] == ["open_negotiation_request"]
     assert "execution" not in result
+
+
+def test_existing_agent_context_package_describes_open_negotiation_history(tmp_path: Path) -> None:
+    """Protects INV-H-004, INV-L-001, and INV-L-004."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
+    scenario = prepare_open_negotiation_scenario(db_url=db_url)
+
+    result = build_existing_agent_context_package(
+        db_url=db_url,
+        observing_agent_id="agent_1",
+        negotiation_id=scenario["scenario"]["negotiation_id"],
+        experiment_instructions="Ask one concise clarification question if useful.",
+    )
+
+    assert result["scenario"] == {
+        "name": "inbound_request",
+        "observing_agent_id": "agent_1",
+        "requesting_agent_id": "agent_2",
+        "negotiation_id": "negotiation_inbound_request",
+    }
+    assert result["decision_context"]["agent_id"] == "agent_1"
+    assert result["decision_context"]["open_negotiations"][0]["id"] == "negotiation_inbound_request"
+    assert [event["type"] for event in result["structured_event_log"]] == [
+        "open_negotiation_request",
+        "open_negotiation_response",
+    ]
+    assert "Ask one concise clarification question if useful." in result["prompt"]
 
 
 def test_context_only_package_can_describe_at_capacity_agent(tmp_path: Path) -> None:
@@ -183,3 +218,27 @@ def test_execute_defer_against_existing_scenario_does_not_require_negotiation_id
         "reason": "needs_more_information",
     }
     assert [event["type"] for event in result["structured_event_log"]] == ["open_negotiation_request"]
+
+
+def test_execute_send_message_against_existing_open_scenario_appends_message(tmp_path: Path) -> None:
+    """Protects INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004, and INV-N-004."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
+    scenario = prepare_open_negotiation_scenario(db_url=db_url)
+
+    result = execute_decision_against_existing_scenario(
+        db_url=db_url,
+        raw_decision={
+            "action": "send_message",
+            "negotiation_id": scenario["scenario"]["negotiation_id"],
+            "actor_agent_id": "agent_1",
+            "body": "Can you clarify the location?",
+        },
+    )
+
+    assert result["execution"] == {"executed": True, "action": "send_message", "result": None}
+    assert [event["type"] for event in result["structured_event_log"]] == [
+        "open_negotiation_request",
+        "open_negotiation_response",
+        "message",
+    ]
+    assert result["structured_event_log"][-1]["payload"] == {"body": "Can you clarify the location?"}

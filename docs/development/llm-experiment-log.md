@@ -524,3 +524,166 @@ Follow-ups:
 
 - Keep future experiments focused on whether context is exposed clearly and whether actions remain protocol-valid.
 - If users want conservative suitability behavior, support agent-owned goals/instructions or principal policy configuration rather than hard-coding a platform-wide correctness rule.
+
+## 2026-09-20: GPT-4o Mini Phase 1 Multi-Turn Protocol Runs
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Harness changes before live runs:
+
+- The supervised LLM executor now executes `send_message` and `close_negotiation` through existing application services, in addition to `accept_negotiation`, `reject_negotiation`, and `defer`.
+- The dev OpenAI adapter schema was widened to include executable message/close actions and still normalizes provider output into the local LLM decision contract.
+- Phase 1 context packages can now start from an accepted/open negotiation and refresh either participant's read-only decision context.
+
+Verification before live runs:
+
+```text
+74 passed
+```
+
+### P1-1: Clarification loop after accepted request
+
+Setup: `agent_1` requested negotiation with `agent_2`; `agent_2` accepted; subject included unspecified `location` and `start_date`.
+
+Observed turns:
+
+1. `agent_2` returned `send_message` asking: `Could you please specify the desired start date for the engineering role?`
+2. `agent_1` returned `send_message` answering: `Location is remote and start date is flexible.`
+
+Protocol result:
+
+- Both decisions validated.
+- Both decisions executed through `send_message` application service.
+- Event log sequence was request, response, message, message.
+- Participant authorization and negotiation ID use remained coherent.
+
+### P1-2: Missing information over multiple rounds
+
+Setup: accepted/open negotiation with unspecified `compensation` and `availability`.
+
+Observed turns:
+
+1. `agent_2` sent a message asking for compensation and availability.
+2. `agent_1` answered only compensation: `The compensation range is 120k-150k.`
+3. `agent_2` sent a follow-up asking for availability.
+
+Protocol result:
+
+- All three decisions validated.
+- All three decisions executed through `send_message` application service.
+- Event history carried the unresolved availability thread without hidden state.
+- No repeated accept/reject action was emitted after the negotiation was already open.
+
+### P1-3: Close-and-stop behavior
+
+Setup: accepted/open negotiation.
+
+Observed turn:
+
+1. `agent_2` returned `close_negotiation` with reason: `Unable to proceed at this time.`
+
+Protocol result:
+
+- The close decision validated and executed through `close_negotiation` application service.
+- The event log appended `close_negotiation` and the negotiation state became `closed`.
+- A later attempted `send_message` against the closed negotiation was blocked by protocol services with `ProtocolViolation: closed negotiation is terminal`.
+
+### P1-4: Context-window resilience summary
+
+Setup: accepted/open negotiation with 8 deterministic message events appended before asking the model for a next action. The model saw 10 prior events total: request, response, and 8 messages.
+
+Observed turn:
+
+1. `agent_2` returned `close_negotiation` with reason: `Discussion complete, no further messages needed.`
+
+Protocol result:
+
+- The decision validated and executed through `close_negotiation` application service.
+- The returned action referenced the correct current negotiation ID.
+- The model did not repeat the completed accept/reject step.
+- The event log remained coherent after the longer history.
+
+### Phase 1 observations
+
+- The existing event-backed context was sufficient for `gpt-4o-mini` to continue protocol-valid interaction over multiple turns in these runs.
+- The most useful next-surface improvement was executor support for already-declared message and close actions; no new domain protocol was needed for Phase 1.
+- Closed-state enforcement worked deterministically at the service layer independent of model behavior.
+- Longer event history did not cause negotiation ID confusion in the single live P1-4 run.
+
+Follow-ups:
+
+- Phase 2 should keep explicit role/negotiation ID tracking as a primary measurement because Phase 1's strongest remaining risk is likely cross-negotiation or cross-agent confusion, not single-thread message continuity.
+- Consider adding a machine-readable experiment transcript artifact later if logs become too large for concise Markdown summaries.
+
+## 2026-09-20: GPT-4o Mini Phase 2 Multi-Agent Communication Runs
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Harness changes before live runs:
+
+- Added dev/test scenario helpers for a three-agent referral relay and two parallel inbound requests to one observing agent.
+- Fixed OpenAI adapter normalization for `reject_negotiation` under the executable schema so provider-only required fields are stripped before local validation.
+
+Verification before live runs:
+
+```text
+77 passed
+```
+
+### P2-1: Referral relay through an intermediary
+
+Setup:
+
+- `agent_1` and `agent_2` had an open upstream negotiation: `negotiation_agent1_agent2`.
+- `agent_2` and `agent_3` had an open downstream negotiation: `negotiation_agent2_agent3`.
+- `agent_2` was the intermediary and participant in both negotiations.
+- `agent_1` asked `agent_2` to ask a trusted engineering contact whether remote backend roles are relevant.
+
+Observed turns:
+
+1. `agent_2` sent a message in `negotiation_agent2_agent3`: `Agent_1 is requesting whether your trusted engineering contact knows if remote backend roles are relevant.`
+2. `agent_3` replied in `negotiation_agent2_agent3`: `I will check with my trusted engineering contact and get back to you shortly.`
+3. `agent_2` sent a message in `negotiation_agent1_agent2`: `Agent_3 will check with their trusted engineering contact and get back shortly.`
+
+Protocol result:
+
+- All three decisions validated.
+- All three decisions executed through `send_message` application service.
+- The observed negotiation IDs matched the intended negotiation for each turn:
+  - downstream, downstream, upstream.
+- `agent_2`'s context included both open negotiations and recent events from both negotiations without causing ID confusion in this run.
+- No non-participant action was attempted.
+
+### P2-2: Parallel inbound requests to one agent
+
+Setup:
+
+- `agent_1` requested `negotiation_engineer_remote` with subject `{ "role": "engineer", "location": "remote" }`.
+- `agent_3` requested `negotiation_sales_onsite` with subject `{ "role": "sales", "location": "onsite" }`.
+- Both requests targeted `agent_2`.
+- `agent_2`'s initial context had `active_load` of `2` and two inbound requested negotiations.
+
+Observed turns:
+
+1. `agent_2` returned `accept_negotiation` for `negotiation_engineer_remote`.
+2. `agent_2` then returned `accept_negotiation` for `negotiation_sales_onsite`.
+
+Protocol result:
+
+- Both decisions validated.
+- Both decisions executed through `respond_to_negotiation` application service.
+- Each action targeted an existing requested negotiation ID.
+- After the first action, context exposed one open negotiation and one remaining inbound requested negotiation; the second action targeted the remaining requested negotiation.
+- Active load remained `2`, reflecting one open negotiation plus one requested negotiation before the second response.
+
+### Phase 2 observations
+
+- In these runs, `gpt-4o-mini` handled multi-negotiation context without confusing negotiation IDs.
+- The intermediary relay worked with the existing bilateral negotiation/message protocol; no new relay-specific protocol surface was needed to test basic information passing.
+- Parallel inbound requests were represented clearly enough for the model to choose existing requested negotiation IDs across sequential turns.
+- These are still single-provider/single-run observations, not universal claims about all bring-your-own agents.
+
+Follow-ups:
+
+- Phase 3 can reasonably move beyond basic communication protocol. The strongest next candidate is negotiation/match-discussion, because agents can now exchange and relay information but do not yet have a structured terminal match proposal/acceptance surface in the live supervised harness.
+- Discovery/graph creation remains important, but the Phase 2 relay experiment suggests that communication can proceed when counterparties are already known; discovery becomes more compelling once match-discussion semantics exist.

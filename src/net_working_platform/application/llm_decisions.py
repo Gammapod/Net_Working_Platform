@@ -40,6 +40,10 @@ class LlmNegotiationService(Protocol):
         decision: NegotiationDecision,
     ) -> object: ...
 
+    def send_message(self, *, negotiation_id: str, actor_agent_id: str, body: str) -> object: ...
+
+    def close_negotiation(self, *, negotiation_id: str, actor_agent_id: str, reason: str) -> object: ...
+
 
 _STRING_FIELDS = {"action", "negotiation_id", "actor_agent_id", "body", "reason"}
 _OBJECT_FIELDS = {"proposal"}
@@ -206,8 +210,8 @@ def _validate_field_type(field: str, value: object) -> None:
 def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) -> dict[str, object]:
     """Execute a validated LLM decision through application services.
 
-    Protects INV-L-004. Initial execution support is intentionally limited to
-    requested-negotiation response decisions and explicit defer.
+    Protects INV-L-004. Execution support is intentionally limited to protocol
+    actions backed by existing application services plus explicit defer.
     """
     if decision.action == LlmDecisionAction.ACCEPT_NEGOTIATION:
         result = service.respond_to_negotiation(
@@ -222,6 +226,22 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
             negotiation_id=_required_string(decision, "negotiation_id"),
             actor_agent_id=_required_string(decision, "actor_agent_id"),
             decision=NegotiationDecision.REJECT,
+        )
+        return {"executed": True, "action": decision.action.value, "result": result}
+
+    if decision.action == LlmDecisionAction.SEND_MESSAGE:
+        result = service.send_message(
+            negotiation_id=_required_string(decision, "negotiation_id"),
+            actor_agent_id=_required_string(decision, "actor_agent_id"),
+            body=_required_string(decision, "body"),
+        )
+        return {"executed": True, "action": decision.action.value, "result": result}
+
+    if decision.action == LlmDecisionAction.CLOSE_NEGOTIATION:
+        result = service.close_negotiation(
+            negotiation_id=_required_string(decision, "negotiation_id"),
+            actor_agent_id=_required_string(decision, "actor_agent_id"),
+            reason=_required_string(decision, "reason"),
         )
         return {"executed": True, "action": decision.action.value, "result": result}
 

@@ -32,6 +32,31 @@ class RecordingNegotiationService:
         self.calls.append(("respond_to_negotiation", payload))
         return {"state": "open" if decision == NegotiationDecision.ACCEPT else "closed"}
 
+    def send_message(self, *, negotiation_id: str, actor_agent_id: str, body: str) -> None:
+        self.calls.append(
+            (
+                "send_message",
+                {
+                    "negotiation_id": negotiation_id,
+                    "actor_agent_id": actor_agent_id,
+                    "body": body,
+                },
+            )
+        )
+
+    def close_negotiation(self, *, negotiation_id: str, actor_agent_id: str, reason: str) -> dict[str, object]:
+        self.calls.append(
+            (
+                "close_negotiation",
+                {
+                    "negotiation_id": negotiation_id,
+                    "actor_agent_id": actor_agent_id,
+                    "reason": reason,
+                },
+            )
+        )
+        return {"state": "closed"}
+
 
 def test_execute_llm_accept_negotiation_decision_uses_service() -> None:
     """Protects INV-L-004, INV-N-003, and INV-H-001."""
@@ -106,6 +131,60 @@ def test_execute_llm_defer_decision_does_not_mutate_protocol_state() -> None:
         "reason": "needs_more_information",
         "actor_agent_id": "agent_2",
     }
+
+
+def test_execute_llm_send_message_decision_uses_service() -> None:
+    """Protects INV-L-004, INV-N-004, and INV-H-001."""
+    service = RecordingNegotiationService()
+    decision = parse_llm_decision(
+        {
+            "action": "send_message",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "agent_2",
+            "body": "Can you clarify the location?",
+        }
+    )
+
+    result = execute_llm_decision(decision, service)
+
+    assert service.calls == [
+        (
+            "send_message",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "agent_2",
+                "body": "Can you clarify the location?",
+            },
+        )
+    ]
+    assert result == {"executed": True, "action": "send_message", "result": None}
+
+
+def test_execute_llm_close_negotiation_decision_uses_service() -> None:
+    """Protects INV-L-004, INV-N-006, and INV-H-001."""
+    service = RecordingNegotiationService()
+    decision = parse_llm_decision(
+        {
+            "action": "close_negotiation",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "agent_2",
+            "reason": "No longer pursuing this negotiation.",
+        }
+    )
+
+    result = execute_llm_decision(decision, service)
+
+    assert service.calls == [
+        (
+            "close_negotiation",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "agent_2",
+                "reason": "No longer pursuing this negotiation.",
+            },
+        )
+    ]
+    assert result == {"executed": True, "action": "close_negotiation", "result": {"state": "closed"}}
 
 
 def test_supervised_llm_accept_experiment_validates_executes_and_records_event(tmp_path: Path) -> None:

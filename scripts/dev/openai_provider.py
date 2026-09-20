@@ -14,15 +14,16 @@ OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "actor_agent_id", "negotiation_id", "reason"],
+    "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body"],
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["accept_negotiation", "reject_negotiation", "defer"],
+            "enum": ["accept_negotiation", "reject_negotiation", "send_message", "close_negotiation", "defer"],
         },
         "actor_agent_id": {"type": "string"},
         "negotiation_id": {"type": "string"},
         "reason": {"type": "string"},
+        "body": {"type": "string"},
     },
 }
 
@@ -89,6 +90,27 @@ def _to_contract_decision(value: dict[str, Any]) -> dict[str, Any]:
             "action": value["action"],
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
+        }
+    if action == "reject_negotiation":
+        return {
+            "action": value["action"],
+            "negotiation_id": value["negotiation_id"],
+            "actor_agent_id": value["actor_agent_id"],
+            "reason": value["reason"],
+        }
+    if action == "send_message":
+        return {
+            "action": value["action"],
+            "negotiation_id": value["negotiation_id"],
+            "actor_agent_id": value["actor_agent_id"],
+            "body": value["body"],
+        }
+    if action == "close_negotiation":
+        return {
+            "action": value["action"],
+            "negotiation_id": value["negotiation_id"],
+            "actor_agent_id": value["actor_agent_id"],
+            "reason": value["reason"],
         }
     if action == "defer":
         return {

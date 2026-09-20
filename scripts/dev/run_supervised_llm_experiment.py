@@ -20,7 +20,13 @@ from net_working_platform.storage.services import create_sql_negotiation_service
 from tests.support.llm_scenarios import seed_inbound_request_scenario
 
 
-EXECUTOR_SUPPORTED_ACTIONS = ["accept_negotiation", "reject_negotiation", "defer"]
+EXECUTOR_SUPPORTED_ACTIONS = [
+    "accept_negotiation",
+    "reject_negotiation",
+    "send_message",
+    "close_negotiation",
+    "defer",
+]
 LLM_DECISION_CONTRACT_PATH = "docs/source-of-truth/llm-decision-contract.md"
 PROMPT_TEMPLATE = """You are acting as the representative agent identified by agent_id in the decision context.
 
@@ -36,10 +42,15 @@ Allowed actions are defined by the LLM Decision Contract:
 - close_negotiation
 - defer
 
-For this experiment, prefer one of:
+For this experiment, choose one executable action from:
 - accept_negotiation
 - reject_negotiation
+- send_message
+- close_negotiation
 - defer
+
+Experiment instructions:
+<EXPERIMENT_INSTRUCTIONS>
 
 Decision context:
 <CONTEXT_JSON>
@@ -66,13 +77,7 @@ def build_context_package(*, db_url: str, max_active_negotiations: int = 5) -> d
             "type": "json_schema",
             "json_schema": LLM_DECISION_JSON_SCHEMA,
         },
-        "prompt": PROMPT_TEMPLATE.replace(
-            "<CONTEXT_JSON>",
-            json.dumps(
-                _decision_context_with_capacity(scenario.decision_context, max_active_negotiations),
-                sort_keys=True,
-            ),
-        ),
+        "prompt": _prompt_for_context(_decision_context_with_capacity(scenario.decision_context, max_active_negotiations)),
         "decision_context": _decision_context_with_capacity(scenario.decision_context, max_active_negotiations),
         "event_log_source": "protocol_events",
         "structured_event_log": [_event_to_record(event) for event in events],
@@ -108,7 +113,73 @@ def build_fit_context_package(
             "type": "json_schema",
             "json_schema": LLM_DECISION_JSON_SCHEMA,
         },
-        "prompt": PROMPT_TEMPLATE.replace("<CONTEXT_JSON>", json.dumps(decision_context, sort_keys=True)),
+        "prompt": _prompt_for_context(decision_context),
+        "decision_context": decision_context,
+        "event_log_source": "protocol_events",
+        "structured_event_log": [_event_to_record(event) for event in events],
+    }
+
+
+def prepare_open_negotiation_scenario(
+    *,
+    db_url: str,
+    subject: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Seed and accept one inbound request so Phase 1 can start from an open negotiation."""
+    scenario = seed_inbound_request_scenario(db_url, subject=subject)
+    execution = execute_decision_against_existing_scenario(
+        db_url=db_url,
+        raw_decision={
+            "action": "accept_negotiation",
+            "negotiation_id": scenario.negotiation_id,
+            "actor_agent_id": scenario.observing_agent_id,
+        },
+        occurred_at=datetime(2026, 1, 8, 12, 5, tzinfo=timezone.utc),
+    )
+    return execution
+
+
+def build_existing_agent_context_package(
+    *,
+    db_url: str,
+    observing_agent_id: str,
+    negotiation_id: str,
+    max_active_negotiations: int = 5,
+    recent_event_limit: int = 20,
+    experiment_instructions: str = "Use the visible protocol context to choose the next protocol-valid action.",
+) -> dict[str, object]:
+    """Build a provider-neutral context package from an already prepared database."""
+    engine = create_engine(db_url)
+    with engine.begin() as connection:
+        service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: "unused",
+            now=lambda: datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc),
+        )
+        negotiations = SqlNegotiationRepository(connection)
+        negotiation = negotiations.get(negotiation_id)
+        decision_context = _decision_context_with_capacity(
+            service.get_agent_decision_context(
+                agent_id=observing_agent_id,
+                recent_event_limit=recent_event_limit,
+            ),
+            max_active_negotiations,
+        )
+        events = SqlProtocolEventRepository(connection).list_for_negotiation(negotiation_id)
+
+    return {
+        "mode": "context_only",
+        "scenario": _scenario_record_from_negotiation(negotiation, observing_agent_id=observing_agent_id),
+        "contract": {
+            "path": LLM_DECISION_CONTRACT_PATH,
+            "executor_supported_actions": EXECUTOR_SUPPORTED_ACTIONS,
+        },
+        "llm_decision_json_schema": LLM_DECISION_JSON_SCHEMA,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": LLM_DECISION_JSON_SCHEMA,
+        },
+        "prompt": _prompt_for_context(decision_context, experiment_instructions=experiment_instructions),
         "decision_context": decision_context,
         "event_log_source": "protocol_events",
         "structured_event_log": [_event_to_record(event) for event in events],
@@ -146,7 +217,12 @@ def run_supervised_experiment(*, db_url: str, raw_decision: dict[str, Any]) -> d
     }
 
 
-def execute_decision_against_existing_scenario(*, db_url: str, raw_decision: dict[str, Any]) -> dict[str, object]:
+def execute_decision_against_existing_scenario(
+    *,
+    db_url: str,
+    raw_decision: dict[str, Any],
+    occurred_at: datetime | None = None,
+) -> dict[str, object]:
     """Execute a decision against an already prepared inbound-request scenario."""
     decision = parse_llm_decision(raw_decision)
 
@@ -157,7 +233,7 @@ def execute_decision_against_existing_scenario(*, db_url: str, raw_decision: dic
         service = create_sql_negotiation_service(
             connection,
             new_id=lambda: "unused",
-            now=lambda: datetime(2026, 1, 8, 12, 5, tzinfo=timezone.utc),
+            now=lambda: occurred_at or datetime(2026, 1, 8, 12, 5, tzinfo=timezone.utc),
         )
         execution_result = execute_llm_decision(decision, service)
         events = SqlProtocolEventRepository(connection).list_for_negotiation(negotiation_id)
@@ -244,13 +320,30 @@ def _scenario_record(scenario: object) -> dict[str, str]:
     }
 
 
-def _scenario_record_from_negotiation(negotiation: Negotiation) -> dict[str, str]:
+def _scenario_record_from_negotiation(
+    negotiation: Negotiation,
+    *,
+    observing_agent_id: str | None = None,
+) -> dict[str, str]:
+    observing_agent_id = observing_agent_id or negotiation.to_agent_id
+    other_agent_id = negotiation.from_agent_id if observing_agent_id == negotiation.to_agent_id else negotiation.to_agent_id
     return {
         "name": "inbound_request",
-        "observing_agent_id": negotiation.to_agent_id,
-        "requesting_agent_id": negotiation.from_agent_id,
+        "observing_agent_id": observing_agent_id,
+        "requesting_agent_id": other_agent_id,
         "negotiation_id": negotiation.id,
     }
+
+
+def _prompt_for_context(
+    decision_context: dict[str, object],
+    *,
+    experiment_instructions: str = "Use the visible protocol context to choose the next protocol-valid action.",
+) -> str:
+    return PROMPT_TEMPLATE.replace("<CONTEXT_JSON>", json.dumps(decision_context, sort_keys=True)).replace(
+        "<EXPERIMENT_INSTRUCTIONS>",
+        experiment_instructions,
+    )
 
 
 def _decision_negotiation_id(decision: object) -> str:
