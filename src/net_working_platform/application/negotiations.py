@@ -213,14 +213,21 @@ class NegotiationService:
     def get_negotiation_history(self, negotiation_id: str) -> list[ProtocolEvent]:
         return self._events.list_for_negotiation(negotiation_id)
 
-    def get_agent_decision_context(self, *, agent_id: str, recent_event_limit: int = 20) -> dict[str, object]:
+    def get_agent_decision_context(
+        self,
+        *,
+        agent_id: str,
+        recent_event_limit: int = 20,
+        max_active_negotiations: int | None = None,
+    ) -> dict[str, object]:
         active_negotiations = self._negotiations.list_active_for_agent(agent_id)
         negotiation_ids = [negotiation.id for negotiation in active_negotiations]
         recent_events = self._events.list_recent_for_agent(agent_id, negotiation_ids, recent_event_limit)
+        active_load = self._negotiations.count_open_for_agent(agent_id)
 
-        return {
+        context: dict[str, object] = {
             "agent_id": agent_id,
-            "active_load": self._negotiations.count_open_for_agent(agent_id),
+            "active_load": active_load,
             "inbound_requested_negotiations": [
                 _negotiation_to_context_record(negotiation)
                 for negotiation in active_negotiations
@@ -233,6 +240,10 @@ class NegotiationService:
             ],
             "recent_events": [_event_to_context_record(event) for event in recent_events],
         }
+        if max_active_negotiations is not None:
+            context["max_active_negotiations"] = max_active_negotiations
+            context["capacity_remaining"] = max(max_active_negotiations - active_load, 0)
+        return context
 
 
 def _negotiation_to_context_record(negotiation: Negotiation) -> dict[str, object]:

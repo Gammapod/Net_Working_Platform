@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from net_working_platform.application.llm_decisions import (
+    LLM_DECISION_JSON_SCHEMA,
     LlmDecisionAction,
     LlmDecisionValidationError,
     parse_llm_decision,
@@ -86,4 +87,25 @@ def test_parse_llm_defer_decision() -> None:
     assert decision.payload == {
         "actor_agent_id": "agent_2",
         "reason": "needs_more_information",
+    }
+
+
+def test_llm_decision_json_schema_describes_supported_actions() -> None:
+    """Protects INV-L-005."""
+    assert LLM_DECISION_JSON_SCHEMA["type"] == "object"
+    assert LLM_DECISION_JSON_SCHEMA["oneOf"]
+    assert LLM_DECISION_JSON_SCHEMA["additionalProperties"] is False
+
+    action_values = {
+        branch["properties"]["action"]["const"]
+        for branch in LLM_DECISION_JSON_SCHEMA["oneOf"]
+    }
+    assert action_values == {
+        "accept_negotiation",
+        "reject_negotiation",
+        "send_message",
+        "propose_match",
+        "accept_match",
+        "close_negotiation",
+        "defer",
     }

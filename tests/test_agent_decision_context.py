@@ -147,3 +147,29 @@ def test_get_agent_decision_context_returns_structured_read_only_context() -> No
     assert not negotiations.add_called
     assert not negotiations.save_called
     assert not events.append_called
+
+
+def test_get_agent_decision_context_includes_capacity_when_limit_supplied() -> None:
+    """Protects INV-H-004."""
+    negotiations = InMemoryNegotiations(
+        [
+            Negotiation("requested_in", "agent_1", "agent_2", NegotiationState.REQUESTED, {}),
+            Negotiation("open_out", "agent_2", "agent_3", NegotiationState.OPEN, {}),
+        ]
+    )
+    service = NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=negotiations,
+        events=InMemoryEvents(),
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 7, tzinfo=timezone.utc),
+    )
+
+    context = service.get_agent_decision_context(
+        agent_id="agent_2",
+        max_active_negotiations=5,
+    )
+
+    assert context["active_load"] == 2
+    assert context["max_active_negotiations"] == 5
+    assert context["capacity_remaining"] == 3

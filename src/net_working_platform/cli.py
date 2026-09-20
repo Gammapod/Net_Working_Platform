@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
                 service.get_agent_decision_context(
                     agent_id=args.agent_id,
                     recent_event_limit=args.recent_event_limit,
+                    max_active_negotiations=args.max_active_negotiations,
                 )
             )
             return 0
@@ -178,6 +179,7 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_context = subparsers.add_parser("agent-context")
     agent_context.add_argument("agent_id")
     agent_context.add_argument("--recent-event-limit", type=int, default=20)
+    agent_context.add_argument("--max-active-negotiations", type=int)
 
     return parser
 

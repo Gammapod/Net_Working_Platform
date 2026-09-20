@@ -100,10 +100,21 @@ def test_cli_returns_agent_decision_context(tmp_path: Path, capsys) -> None:
         capsys=capsys,
     )
 
-    context = run_cli(db_url, "agent-context", "agent_2", "--recent-event-limit", "5", capsys=capsys)
+    context = run_cli(
+        db_url,
+        "agent-context",
+        "agent_2",
+        "--recent-event-limit",
+        "5",
+        "--max-active-negotiations",
+        "5",
+        capsys=capsys,
+    )
 
     assert context["agent_id"] == "agent_2"
     assert context["active_load"] == 1
+    assert context["max_active_negotiations"] == 5
+    assert context["capacity_remaining"] == 4
     assert context["inbound_requested_negotiations"] == [
         {
             "id": requested["id"],

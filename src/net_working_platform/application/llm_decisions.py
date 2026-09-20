@@ -76,6 +76,88 @@ _ACTION_FIELDS: dict[LlmDecisionAction, tuple[set[str], set[str]]] = {
 }
 
 
+LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "additionalProperties": False,
+    "oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id"],
+            "properties": {
+                "action": {"const": "accept_negotiation"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id"],
+            "properties": {
+                "action": {"const": "reject_negotiation"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "body"],
+            "properties": {
+                "action": {"const": "send_message"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+                "body": {"type": "string"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "proposal"],
+            "properties": {
+                "action": {"const": "propose_match"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+                "proposal": {"type": "object"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id"],
+            "properties": {
+                "action": {"const": "accept_match"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "reason"],
+            "properties": {
+                "action": {"const": "close_negotiation"},
+                "negotiation_id": {"type": "string"},
+                "actor_agent_id": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "actor_agent_id", "reason"],
+            "properties": {
+                "action": {"const": "defer"},
+                "actor_agent_id": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+        },
+    ],
+}
+
+
 def parse_llm_decision(raw: dict[str, Any]) -> LlmDecision:
     """Parse and validate one LLM-facing decision signal.
 

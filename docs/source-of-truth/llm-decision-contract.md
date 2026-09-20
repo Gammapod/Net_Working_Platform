@@ -8,11 +8,18 @@ The contract describes the only JSON decision signals an LLM may emit. It does n
 
 - The LLM receives read-only decision context.
 - The LLM emits exactly one JSON object.
+- Providers that support structured output should be constrained with the JSON Schema for this contract.
 - The JSON object must have an `action` field.
 - The action must be one of the supported action values below.
 - Each action permits only its documented fields.
 - Unknown actions, missing required fields, wrong field types, and extra fields are invalid.
 - Valid decisions are still subject to application service authorization and protocol validation before execution.
+
+## JSON Schema
+
+The machine-readable schema is exposed in code as `LLM_DECISION_JSON_SCHEMA` from `net_working_platform.application.llm_decisions` and should be included in provider context packages when possible.
+
+The schema is the preferred provider-facing constraint. Prose instructions are a fallback for providers or tools that do not support JSON Schema response formats.
 
 ## Supported Actions
 

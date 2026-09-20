@@ -195,12 +195,13 @@ Protected by:
 
 ### INV-H-004: Agent Decision Context Is Structured And Read-Only
 
-Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, inbound requested negotiations, open negotiations, and recent protocol events relevant to that agent.
+Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, capacity information when supplied, inbound requested negotiations, open negotiations, and recent protocol events relevant to that agent.
 
 Protected by:
 
 - `test_get_agent_decision_context_returns_structured_read_only_context`
 - `test_cli_returns_agent_decision_context`
+- `test_get_agent_decision_context_includes_capacity_when_limit_supplied`
 
 ## LLM Decision Invariants
 
@@ -222,6 +223,25 @@ Protected by:
 - `test_parse_llm_accept_negotiation_decision`
 - `test_parse_llm_decision_requires_action_specific_fields`
 - `test_parse_llm_decision_rejects_extra_fields`
+
+### INV-L-005: LLM Decision Contract Exposes JSON Schema
+
+The LLM decision contract must expose a machine-readable JSON Schema so providers that support structured output can be constrained by schema instead of prose alone.
+
+Protected by:
+
+- `test_llm_decision_json_schema_describes_supported_actions`
+- `test_context_only_package_outputs_provider_neutral_prompt_without_execution`
+
+### INV-L-006: Dev Provider Adapters Use Schema-Constrained Output
+
+Dev-only provider adapters must use the LLM decision JSON Schema as the provider output constraint when the provider supports schema-constrained responses. Provider credentials must be read from environment variables, not stored in repository files.
+
+Protected by:
+
+- `test_openai_adapter_builds_schema_constrained_responses_request`
+- `test_openai_adapter_parses_schema_constrained_decision_text`
+- `test_openai_adapter_requires_api_key`
 
 ### INV-L-003: LLM Defer Is Explicit And Non-Mutating
 
@@ -335,6 +355,7 @@ Protected by:
 | `test_non_participant_cannot_accept_match` | INV-N-007 |
 | `test_non_participant_cannot_close_negotiation` | INV-N-007 |
 | `test_get_agent_decision_context_returns_structured_read_only_context` | INV-H-004 |
+| `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
 | `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
 | `test_parse_llm_accept_negotiation_decision` | INV-L-001, INV-L-002 |
@@ -347,3 +368,11 @@ Protected by:
 | `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
 | `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
 | `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
+| `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-H-004, INV-L-001, INV-L-002 |
+| `test_execute_decision_against_existing_scenario_reuses_prepared_database` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
+| `test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate` | INV-L-003, INV-L-004 |
+| `test_llm_decision_json_schema_describes_supported_actions` | INV-L-005 |
+| `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-L-005 |
+| `test_openai_adapter_builds_schema_constrained_responses_request` | INV-L-006 |
+| `test_openai_adapter_parses_schema_constrained_decision_text` | INV-L-006 |
+| `test_openai_adapter_requires_api_key` | INV-L-006 |

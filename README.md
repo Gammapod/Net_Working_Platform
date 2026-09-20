@@ -133,6 +133,7 @@ Implemented and tested:
 - Alembic initial migration.
 - SQL-backed service wiring.
 - Read-only agent decision context for constrained LLM experiments.
+- Explicit capacity fields in agent decision context.
 - LLM decision contract validation.
 - Validated LLM decision execution for accept, reject, and defer.
 - CLI lifecycle commands.
@@ -149,6 +150,8 @@ Current automated verification:
 - LLM decision contract tests.
 - Supervised LLM decision execution test.
 - Dev supervised experiment runner test.
+- Provider-agnostic context-only experiment runner test.
+- Shared-database supervised experiment runner test.
 
 ## Not Yet Added
 
@@ -193,6 +196,6 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [Functional Invariants](docs/source-of-truth/functional-invariants.md)
 - [LLM Decision Contract](docs/source-of-truth/llm-decision-contract.md)
 - [Test Charter](docs/source-of-truth/test-charter.md)
-- [LLM Scenario Development Utilities](docs/development/llm-scenarios.md)
+- [LLM Experiment Plan](docs/development/llm-experiment-plan.md)
 - [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
