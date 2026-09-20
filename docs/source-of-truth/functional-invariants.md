@@ -144,6 +144,18 @@ Protected by:
 - `test_matched_negotiation_rejects_close`
 - `test_close_negotiation_service_closes_open_negotiation`
 
+### INV-N-007: Negotiation Actions Require Participant Actor
+
+Only the negotiation's `from_agent_id` or `to_agent_id` may perform protocol actions on that negotiation. Rejected non-participant actions must not mutate negotiation state or append protocol events.
+
+Protected by:
+
+- `test_non_participant_cannot_respond_to_negotiation`
+- `test_non_participant_cannot_send_message`
+- `test_non_participant_cannot_propose_match`
+- `test_non_participant_cannot_accept_match`
+- `test_non_participant_cannot_close_negotiation`
+
 ## Event And History Invariants
 
 ### INV-H-001: Every Protocol Action Appends An Event
@@ -181,11 +193,60 @@ Protected by:
 - `test_sql_repositories_round_trip_negotiation_and_events_in_order`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
 
+### INV-H-004: Agent Decision Context Is Structured And Read-Only
+
+Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, inbound requested negotiations, open negotiations, and recent protocol events relevant to that agent.
+
+Protected by:
+
+- `test_get_agent_decision_context_returns_structured_read_only_context`
+- `test_cli_returns_agent_decision_context`
+
+## LLM Decision Invariants
+
+### INV-L-001: LLM Decisions Use A Closed Action Set
+
+LLM decision signals must use exactly one supported action from the LLM decision contract. Unsupported actions are invalid.
+
+Protected by:
+
+- `test_parse_llm_accept_negotiation_decision`
+- `test_parse_llm_decision_rejects_unknown_action`
+
+### INV-L-002: LLM Decisions Reject Malformed Payloads
+
+LLM decision signals must include all required fields for their action, use the expected field types, and reject extra fields.
+
+Protected by:
+
+- `test_parse_llm_accept_negotiation_decision`
+- `test_parse_llm_decision_requires_action_specific_fields`
+- `test_parse_llm_decision_rejects_extra_fields`
+
+### INV-L-003: LLM Defer Is Explicit And Non-Mutating
+
+A model may choose `defer` only as an explicit structured decision with an actor and reason. `defer` represents no protocol mutation by itself.
+
+Protected by:
+
+- `test_parse_llm_defer_decision`
+
+### INV-L-004: Validated LLM Decisions Execute Through Application Services
+
+LLM decision execution must accept validated decision objects, not raw model JSON. Mutating decisions must execute through application services so normal protocol authorization, state transitions, and event appends remain enforced. `defer` must not mutate protocol state.
+
+Protected by:
+
+- `test_execute_llm_accept_negotiation_decision_uses_service`
+- `test_execute_llm_reject_negotiation_decision_uses_service`
+- `test_execute_llm_defer_decision_does_not_mutate_protocol_state`
+- `test_supervised_llm_accept_experiment_validates_executes_and_records_event`
+
 ## Capacity Invariants
 
 ### INV-C-001: Open Negotiation Limit Is Enforced
 
-An agent cannot exceed its configured maximum open negotiations.
+An agent cannot exceed its configured maximum active negotiations. Active load includes `requested` and `open` negotiations where the agent is either `from_agent_id` or `to_agent_id`. `matched` and `closed` negotiations do not count as active load.
 
 Protected by:
 
@@ -194,6 +255,7 @@ Protected by:
 - `test_open_negotiation_capacity_rejects_at_limit`
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
 - `test_sql_negotiation_repository_counts_requested_and_open_as_active_load`
+- `test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load`
 
 ### INV-C-002: Capacity Rejections Are Recorded
 
@@ -213,6 +275,7 @@ Human-first CLI commands must return structured JSON so outputs can be inspected
 Protected by:
 
 - `test_cli_runs_full_negotiation_lifecycle`
+- `test_cli_returns_agent_decision_context`
 
 ### INV-CLI-002: CLI Uses The Same Application Services As Other Entrypoints
 
@@ -221,6 +284,7 @@ CLI commands must call the same application services and SQL repositories used b
 Protected by:
 
 - `test_cli_runs_full_negotiation_lifecycle`
+- `test_cli_returns_agent_decision_context`
 
 ## Test Traceability
 
@@ -261,6 +325,25 @@ Protected by:
 | `test_storage_schema_uses_check_constraints_for_domain_enums` | INV-E-001, INV-E-002, INV-N-002, INV-N-006 |
 | `test_sql_repositories_round_trip_core_graph_records` | INV-E-001, INV-E-003 |
 | `test_sql_negotiation_repository_counts_requested_and_open_as_active_load` | INV-C-001 |
+| `test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load` | INV-C-001 |
 | `test_sql_repositories_round_trip_negotiation_and_events_in_order` | INV-N-001, INV-H-003 |
 | `test_sql_backed_negotiation_service_runs_full_lifecycle` | INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-001, INV-H-003 |
 | `test_cli_runs_full_negotiation_lifecycle` | INV-CLI-001, INV-CLI-002, INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-003 |
+| `test_non_participant_cannot_respond_to_negotiation` | INV-N-007 |
+| `test_non_participant_cannot_send_message` | INV-N-007 |
+| `test_non_participant_cannot_propose_match` | INV-N-007 |
+| `test_non_participant_cannot_accept_match` | INV-N-007 |
+| `test_non_participant_cannot_close_negotiation` | INV-N-007 |
+| `test_get_agent_decision_context_returns_structured_read_only_context` | INV-H-004 |
+| `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
+| `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
+| `test_parse_llm_accept_negotiation_decision` | INV-L-001, INV-L-002 |
+| `test_parse_llm_decision_rejects_unknown_action` | INV-L-001 |
+| `test_parse_llm_decision_requires_action_specific_fields` | INV-L-002 |
+| `test_parse_llm_decision_rejects_extra_fields` | INV-L-002 |
+| `test_parse_llm_defer_decision` | INV-L-003 |
+| `test_execute_llm_accept_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
+| `test_execute_llm_reject_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
+| `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
+| `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
+| `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |

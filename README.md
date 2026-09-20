@@ -84,7 +84,7 @@ The MVP schema contains:
 Decisions currently encoded:
 
 - Agent connections are directional.
-- `requested` and `open` negotiations count as active load for capacity checks.
+- `requested` and `open` negotiations count as active load for both participating agents.
 - `matched` and `closed` negotiations do not count as active load.
 - Event payloads and negotiation subjects use JSON, with Postgres JSONB when using the Postgres dialect.
 - IDs are application-generated text IDs for now.
@@ -116,6 +116,7 @@ python -m net_working_platform.cli --db-url $db send-message $negotiationId agen
 python -m net_working_platform.cli --db-url $db propose-match $negotiationId agent_1 --proposal '{"candidate_id":"client_1","principal_id":"principal_1"}'
 python -m net_working_platform.cli --db-url $db accept-match $negotiationId agent_2
 python -m net_working_platform.cli --db-url $db history $negotiationId
+python -m net_working_platform.cli --db-url $db agent-context agent_2 --recent-event-limit 10
 ```
 
 Each command returns structured JSON.
@@ -131,6 +132,9 @@ Implemented and tested:
 - SQLAlchemy Core schema and repositories.
 - Alembic initial migration.
 - SQL-backed service wiring.
+- Read-only agent decision context for constrained LLM experiments.
+- LLM decision contract validation.
+- Validated LLM decision execution for accept, reject, and defer.
 - CLI lifecycle commands.
 
 Current automated verification:
@@ -140,6 +144,11 @@ Current automated verification:
 - SQL repository tests.
 - SQL-backed service lifecycle test.
 - CLI lifecycle test.
+- CLI decision-context test.
+- Dev-only LLM scenario test.
+- LLM decision contract tests.
+- Supervised LLM decision execution test.
+- Dev supervised experiment runner test.
 
 ## Not Yet Added
 
@@ -161,7 +170,7 @@ The platform now has enough stable surface area for constrained LLM experiments 
 
 Recommended first LLM experiment:
 
-- Give the LLM a fixed scenario and structured state/history.
+- Give the LLM a fixed scenario and read-only agent decision context containing active load, inbound requested negotiations, open negotiations, and recent events.
 - Restrict outputs to one protocol action enum plus validated arguments.
 - Execute the selected action through the application service or CLI.
 - Verify the resulting event history against the same invariants used by tests.
@@ -182,4 +191,8 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 
 - [MVP Plan](docs/planning/mvp-plan.md)
 - [Functional Invariants](docs/source-of-truth/functional-invariants.md)
+- [LLM Decision Contract](docs/source-of-truth/llm-decision-contract.md)
 - [Test Charter](docs/source-of-truth/test-charter.md)
+- [LLM Scenario Development Utilities](docs/development/llm-scenarios.md)
+- [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
+- [LLM Experiment Log](docs/development/llm-experiment-log.md)

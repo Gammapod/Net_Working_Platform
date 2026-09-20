@@ -80,3 +80,38 @@ def test_cli_runs_full_negotiation_lifecycle(tmp_path: Path, capsys) -> None:
         "match_accepted",
     ]
     assert history["events"][2]["payload"] == {"body": "Candidate can interview Tuesday."}
+
+
+def test_cli_returns_agent_decision_context(tmp_path: Path, capsys) -> None:
+    """Protects INV-H-004, INV-CLI-001, and INV-CLI-002."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
+
+    run_cli(db_url, "setup-db", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_1", "agent", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_2", "agent", capsys=capsys)
+    run_cli(db_url, "connect-agents", "agent_1", "agent_2", capsys=capsys)
+    requested = run_cli(
+        db_url,
+        "request-negotiation",
+        "agent_1",
+        "agent_2",
+        "--subject",
+        '{"role":"engineer"}',
+        capsys=capsys,
+    )
+
+    context = run_cli(db_url, "agent-context", "agent_2", "--recent-event-limit", "5", capsys=capsys)
+
+    assert context["agent_id"] == "agent_2"
+    assert context["active_load"] == 1
+    assert context["inbound_requested_negotiations"] == [
+        {
+            "id": requested["id"],
+            "from_agent_id": "agent_1",
+            "to_agent_id": "agent_2",
+            "state": "requested",
+            "subject": {"role": "engineer"},
+        }
+    ]
+    assert context["open_negotiations"] == []
+    assert [event["type"] for event in context["recent_events"]] == ["open_negotiation_request"]

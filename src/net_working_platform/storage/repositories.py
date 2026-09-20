@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Connection, func, insert, select, update
+from sqlalchemy import Connection, func, insert, or_, select, update
 
 from net_working_platform.domain.model import (
     AgentConnection,
@@ -125,10 +125,27 @@ class SqlNegotiationRepository:
     def count_open_for_agent(self, agent_id: str) -> int:
         return self._connection.execute(
             select(func.count()).select_from(negotiations).where(
-                negotiations.c.from_agent_id == agent_id,
+                or_(
+                    negotiations.c.from_agent_id == agent_id,
+                    negotiations.c.to_agent_id == agent_id,
+                ),
                 negotiations.c.state.in_([NegotiationState.REQUESTED.value, NegotiationState.OPEN.value]),
             )
         ).scalar_one()
+
+    def list_active_for_agent(self, agent_id: str) -> list[Negotiation]:
+        rows = self._connection.execute(
+            select(negotiations)
+            .where(
+                or_(
+                    negotiations.c.from_agent_id == agent_id,
+                    negotiations.c.to_agent_id == agent_id,
+                ),
+                negotiations.c.state.in_([NegotiationState.REQUESTED.value, NegotiationState.OPEN.value]),
+            )
+            .order_by(negotiations.c.created_at, negotiations.c.id)
+        ).all()
+        return [self._to_domain(row._mapping) for row in rows]
 
     def add(self, negotiation: Negotiation) -> None:
         now = _utcnow()
@@ -189,6 +206,18 @@ class SqlProtocolEventRepository:
             .order_by(protocol_events.c.occurred_at, protocol_events.c.id)
         ).all()
         return [self._to_domain(row._mapping) for row in rows]
+
+    def list_recent_for_agent(self, agent_id: str, negotiation_ids: list[str], limit: int) -> list[ProtocolEvent]:
+        del agent_id
+        if not negotiation_ids or limit <= 0:
+            return []
+        rows = self._connection.execute(
+            select(protocol_events)
+            .where(protocol_events.c.negotiation_id.in_(negotiation_ids))
+            .order_by(protocol_events.c.occurred_at.desc(), protocol_events.c.id.desc())
+            .limit(limit)
+        ).all()
+        return [self._to_domain(row._mapping) for row in reversed(rows)]
 
     def _to_domain(self, record: object) -> ProtocolEvent:
         return ProtocolEvent(

@@ -110,6 +110,12 @@ def can_append_message(state: NegotiationState) -> bool:
     return state == NegotiationState.OPEN
 
 
+def ensure_negotiation_actor_is_participant(negotiation: Negotiation, actor_agent_id: str) -> None:
+    """INV-N-007: Negotiation actions require a participant actor."""
+    if actor_agent_id not in {negotiation.from_agent_id, negotiation.to_agent_id}:
+        raise PermissionError("actor must be a negotiation participant")
+
+
 def next_negotiation_state(
     current_state: NegotiationState | None,
     event_type: ProtocolEventType,

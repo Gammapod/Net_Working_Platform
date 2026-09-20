@@ -70,6 +70,26 @@ def test_sql_negotiation_repository_counts_requested_and_open_as_active_load() -
         assert negotiations.count_open_for_agent("agent_1") == 2
 
 
+def test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load() -> None:
+    """Protects INV-C-001."""
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    metadata.create_all(engine)
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        negotiations = SqlNegotiationRepository(connection)
+        for agent_id in ["agent_1", "agent_2"]:
+            nodes.add(Node(id=agent_id, type=NodeType.AGENT))
+
+        negotiations.add(Negotiation("outbound_open", "agent_1", "agent_2", NegotiationState.OPEN, {}))
+        negotiations.add(Negotiation("inbound_requested", "agent_2", "agent_1", NegotiationState.REQUESTED, {}))
+        negotiations.add(Negotiation("inbound_open", "agent_2", "agent_1", NegotiationState.OPEN, {}))
+        negotiations.add(Negotiation("inbound_matched", "agent_2", "agent_1", NegotiationState.MATCHED, {}))
+        negotiations.add(Negotiation("inbound_closed", "agent_2", "agent_1", NegotiationState.CLOSED, {}))
+
+        assert negotiations.count_open_for_agent("agent_1") == 3
+
+
 def test_sql_repositories_round_trip_negotiation_and_events_in_order() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     metadata.create_all(engine)

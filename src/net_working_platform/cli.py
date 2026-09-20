@@ -113,6 +113,15 @@ def main(argv: list[str] | None = None) -> int:
             _emit({"events": [_event_to_dict(event) for event in service.get_negotiation_history(args.negotiation_id)]})
             return 0
 
+        if args.command == "agent-context":
+            _emit(
+                service.get_agent_decision_context(
+                    agent_id=args.agent_id,
+                    recent_event_limit=args.recent_event_limit,
+                )
+            )
+            return 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
 
@@ -165,6 +174,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     history = subparsers.add_parser("history")
     history.add_argument("negotiation_id")
+
+    agent_context = subparsers.add_parser("agent-context")
+    agent_context.add_argument("agent_id")
+    agent_context.add_argument("--recent-event-limit", type=int, default=20)
 
     return parser
 

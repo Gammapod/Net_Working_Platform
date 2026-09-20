@@ -73,7 +73,7 @@ Decisions:
 - Use Alembic for migration tracking.
 - Keep domain dataclasses separate from storage table definitions.
 - Agent-agent connections are directional.
-- Open negotiation capacity counts `requested` and `open` negotiations as active load; `matched` and `closed` do not count.
+- Open negotiation capacity counts `requested` and `open` negotiations as active load for both participating agents; `matched` and `closed` do not count.
 - Use application-generated text IDs for the MVP.
 - Use JSON payload columns for negotiation subjects and protocol event payloads.
 
