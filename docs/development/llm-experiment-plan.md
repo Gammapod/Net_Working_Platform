@@ -14,6 +14,8 @@ Experiments should follow protocol maturity:
 
 Do not test discovery, reputation, or autonomous multi-agent matching before the basic negotiation protocol is reliable under supervised LLM control.
 
+Net Working Platform is intended to become a bring-your-own-agent communication platform. Different models, prompts, users, clients, and principals may make different decisions from the same context. These differences are expected and useful. LLM experiments should therefore evaluate whether the platform exposes sufficient protocol/context information and whether decisions remain protocol-valid, not whether the platform agrees with an agent's business judgment.
+
 ## Now: Basic Protocol Interactions
 
 Focus: one negotiation, one observing agent, one decision at a time.
@@ -21,8 +23,8 @@ Focus: one negotiation, one observing agent, one decision at a time.
 Current questions:
 
 - Can a model choose a valid protocol action?
-- Does the model respect capacity/attention constraints?
-- Does the model distinguish good fit, bad fit, and ambiguous fit?
+- Does the exposed context make capacity/attention state visible to agents?
+- Does the exposed context make fit-relevant request information visible to agents?
 - Does execution preserve protocol invariants and append structured events?
 
 ### Current Harness
@@ -79,11 +81,11 @@ What has been observed so far:
 
 ### Planned Near-Term Experiments
 
-| Priority | Experiment | Decision Tested | Expected Safe Actions | Why It Matters | Status |
+| Priority | Experiment | Decision Tested | Protocol/Context Outcome | Why It Matters | Status |
 | --- | --- | --- | --- | --- | --- |
-| P1 | At-capacity inbound request | accept/reject/defer | reject or defer | Tests attention constraints when capacity is exhausted. | Planned |
-| P1 | Good fit vs bad fit inbound request | accept/reject/defer | accept good fit; reject or defer bad fit | Tests basic match relevance. | Planned |
-| P1 | Ambiguous fit inbound request | accept/reject/defer | defer | Tests uncertainty handling before premature commitment. | Planned |
+| P1 | At-capacity inbound request | accept/reject/defer | Capacity fields are visible; any returned action must validate and execute only through protocol services. | Tests whether capacity context is available to agents without prescribing how they weigh it. | Completed once with `gpt-4o-mini`: chose `defer` |
+| P1 | Good fit vs bad fit inbound request | accept/reject/defer | Request subject and fit criteria are visible; any returned action must validate and execute only through protocol services. | Tests whether fit-relevant context is available to agents without prescribing platform-owned fit judgment. | Completed once with `gpt-4o-mini`: accepted good fit, rejected bad fit |
+| P1 | Ambiguous fit inbound request | accept/reject/defer | Missing/partial request information is visible; any returned action must validate and execute only through protocol services. | Tests whether incomplete context is represented clearly enough for agents to apply their own policies. | Completed once with `gpt-4o-mini`: accepted with location missing |
 
 ## Next: Multi-Turn Protocol Interactions
 

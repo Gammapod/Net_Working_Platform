@@ -4,6 +4,7 @@ from pathlib import Path
 
 from scripts.dev.run_supervised_llm_experiment import (
     build_context_package,
+    build_fit_context_package,
     execute_decision_against_existing_scenario,
     run_supervised_experiment,
 )
@@ -33,6 +34,71 @@ def test_context_only_package_outputs_provider_neutral_prompt_without_execution(
     assert result["event_log_source"] == "protocol_events"
     assert [event["type"] for event in result["structured_event_log"]] == ["open_negotiation_request"]
     assert "execution" not in result
+
+
+def test_context_only_package_can_describe_at_capacity_agent(tmp_path: Path) -> None:
+    """Protects INV-H-004."""
+    result = build_context_package(
+        db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
+        max_active_negotiations=1,
+    )
+
+    assert result["decision_context"]["active_load"] == 1
+    assert result["decision_context"]["max_active_negotiations"] == 1
+    assert result["decision_context"]["capacity_remaining"] == 0
+
+
+def test_fit_context_package_describes_request_subject_and_fit_criteria(tmp_path: Path) -> None:
+    """Protects INV-H-004."""
+    result = build_fit_context_package(
+        db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
+        request_subject={"role": "engineer", "location": "remote"},
+        observing_agent_fit_criteria={"preferred_role": "engineer", "preferred_location": "remote"},
+    )
+
+    assert result["decision_context"]["observing_agent_fit_criteria"] == {
+        "preferred_role": "engineer",
+        "preferred_location": "remote",
+    }
+    assert result["decision_context"]["inbound_requested_negotiations"][0]["subject"] == {
+        "role": "engineer",
+        "location": "remote",
+    }
+
+
+def test_fit_context_package_can_describe_bad_fit_request(tmp_path: Path) -> None:
+    """Protects INV-H-004."""
+    result = build_fit_context_package(
+        db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
+        request_subject={"role": "sales", "location": "onsite"},
+        observing_agent_fit_criteria={"preferred_role": "engineer", "preferred_location": "remote"},
+    )
+
+    assert result["decision_context"]["observing_agent_fit_criteria"] == {
+        "preferred_role": "engineer",
+        "preferred_location": "remote",
+    }
+    assert result["decision_context"]["inbound_requested_negotiations"][0]["subject"] == {
+        "role": "sales",
+        "location": "onsite",
+    }
+
+
+def test_fit_context_package_can_describe_ambiguous_fit_request(tmp_path: Path) -> None:
+    """Protects INV-H-004."""
+    result = build_fit_context_package(
+        db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
+        request_subject={"role": "engineer"},
+        observing_agent_fit_criteria={"preferred_role": "engineer", "preferred_location": "remote"},
+    )
+
+    assert result["decision_context"]["observing_agent_fit_criteria"] == {
+        "preferred_role": "engineer",
+        "preferred_location": "remote",
+    }
+    assert result["decision_context"]["inbound_requested_negotiations"][0]["subject"] == {
+        "role": "engineer",
+    }
 
 
 def test_supervised_experiment_runner_outputs_database_backed_structured_event_log(tmp_path: Path) -> None:

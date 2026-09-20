@@ -369,6 +369,10 @@ Protected by:
 | `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
 | `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
 | `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-H-004, INV-L-001, INV-L-002 |
+| `test_context_only_package_can_describe_at_capacity_agent` | INV-H-004 |
+| `test_fit_context_package_describes_request_subject_and_fit_criteria` | INV-H-004 |
+| `test_fit_context_package_can_describe_bad_fit_request` | INV-H-004 |
+| `test_fit_context_package_can_describe_ambiguous_fit_request` | INV-H-004 |
 | `test_execute_decision_against_existing_scenario_reuses_prepared_database` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
 | `test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate` | INV-L-003, INV-L-004 |
 | `test_llm_decision_json_schema_describes_supported_actions` | INV-L-005 |

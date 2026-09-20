@@ -20,7 +20,11 @@ class InboundRequestScenario:
     decision_context: dict[str, object]
 
 
-def seed_inbound_request_scenario(db_url: str) -> InboundRequestScenario:
+def seed_inbound_request_scenario(
+    db_url: str,
+    *,
+    subject: dict[str, object] | None = None,
+) -> InboundRequestScenario:
     """Create a dev/test-only scenario for one-step LLM decision observation.
 
     The scenario creates two agents, connects agent_1 to agent_2, opens a
@@ -46,7 +50,7 @@ def seed_inbound_request_scenario(db_url: str) -> InboundRequestScenario:
         negotiation = service.request_negotiation(
             from_agent_id="agent_1",
             to_agent_id="agent_2",
-            subject={"role": "engineer", "location": "remote"},
+            subject=subject or {"role": "engineer", "location": "remote"},
             max_open_negotiations=5,
         )
         decision_context = service.get_agent_decision_context(agent_id="agent_2", recent_event_limit=10)

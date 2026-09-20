@@ -79,6 +79,42 @@ def build_context_package(*, db_url: str, max_active_negotiations: int = 5) -> d
     }
 
 
+def build_fit_context_package(
+    *,
+    db_url: str,
+    request_subject: dict[str, object],
+    observing_agent_fit_criteria: dict[str, object],
+    max_active_negotiations: int = 5,
+) -> dict[str, object]:
+    """Build a provider-neutral context package for fit-quality experiments."""
+    scenario = seed_inbound_request_scenario(db_url, subject=request_subject)
+    engine = create_engine(db_url)
+    with engine.begin() as connection:
+        events = SqlProtocolEventRepository(connection).list_for_negotiation(scenario.negotiation_id)
+
+    decision_context = {
+        **_decision_context_with_capacity(scenario.decision_context, max_active_negotiations),
+        "observing_agent_fit_criteria": observing_agent_fit_criteria,
+    }
+    return {
+        "mode": "context_only",
+        "scenario": _scenario_record(scenario),
+        "contract": {
+            "path": LLM_DECISION_CONTRACT_PATH,
+            "executor_supported_actions": EXECUTOR_SUPPORTED_ACTIONS,
+        },
+        "llm_decision_json_schema": LLM_DECISION_JSON_SCHEMA,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": LLM_DECISION_JSON_SCHEMA,
+        },
+        "prompt": PROMPT_TEMPLATE.replace("<CONTEXT_JSON>", json.dumps(decision_context, sort_keys=True)),
+        "decision_context": decision_context,
+        "event_log_source": "protocol_events",
+        "structured_event_log": [_event_to_record(event) for event in events],
+    }
+
+
 def run_supervised_experiment(*, db_url: str, raw_decision: dict[str, Any]) -> dict[str, object]:
     """Run the current dev-only supervised LLM experiment.
 
@@ -143,13 +179,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--decision-file")
     parser.add_argument("--context-only", action="store_true")
     parser.add_argument("--use-existing-scenario", action="store_true")
+    parser.add_argument("--max-active-negotiations", type=int, default=5)
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
 
     if args.context_only:
         if args.decision_json or args.decision_file:
             raise SystemExit("--context-only cannot be combined with --decision-json or --decision-file")
-        result = build_context_package(db_url=args.db_url)
+        result = build_context_package(
+            db_url=args.db_url,
+            max_active_negotiations=args.max_active_negotiations,
+        )
     else:
         raw_decision = _load_decision(args.decision_json, args.decision_file)
         if args.use_existing_scenario:

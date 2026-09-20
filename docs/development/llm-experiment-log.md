@@ -278,4 +278,249 @@ Observations:
 
 Follow-ups:
 
-- Add scenario variants for near-capacity and at-capacity agents to observe whether models defer or reject appropriately.
+- Add scenario variants for near-capacity and at-capacity agents to observe how different agents weigh capacity information.
+
+## 2026-09-19: GPT-4o Mini At-Capacity Inbound Request
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Scenario: Inbound request scenario with context capacity set to at-capacity.
+
+Prompt/manual reference: `docs/development/llm-experiment-manual.md`, context package with explicit capacity fields and OpenAI Responses API JSON Schema response format.
+
+Decision context capacity:
+
+```json
+{
+  "active_load": 1,
+  "max_active_negotiations": 1,
+  "capacity_remaining": 0
+}
+```
+
+Validated decision:
+
+```json
+{
+  "action": "defer",
+  "actor_agent_id": "agent_2",
+  "reason": "Insufficient capacity to engage in new negotiations at this time."
+}
+```
+
+Validation result: Passed through `parse_llm_decision`; parsed action was `defer`.
+
+Execution result: Passed through `execute_decision_against_existing_scenario`; result was non-mutating: `{"executed": false, "action": "defer"}`.
+
+Resulting event history:
+
+```json
+[
+  {
+    "type": "open_negotiation_request",
+    "actor_agent_id": "agent_1",
+    "negotiation_id": "negotiation_inbound_request"
+  }
+]
+```
+
+Observations:
+
+- With capacity remaining set to `0`, the model chose the non-mutating action `defer`.
+- The event log correctly remained unchanged after the model deferred.
+- This supports the hypothesis that explicit capacity context affects model decisions.
+
+Follow-ups:
+
+- Run near-capacity and fit-quality experiments before generalizing how this provider/model uses exposed context.
+
+## 2026-09-20: GPT-4o Mini Good-Fit vs Bad-Fit Inbound Requests
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Scenario: Two inbound request scenarios with explicit dev-only fit criteria in the context package.
+
+Prompt/manual reference: `docs/development/llm-experiment-manual.md`, context package with explicit request subject, observing-agent fit criteria, and OpenAI Responses API JSON Schema response format.
+
+Shared observing-agent fit criteria:
+
+```json
+{
+  "preferred_role": "engineer",
+  "preferred_location": "remote"
+}
+```
+
+### Good fit
+
+Request subject:
+
+```json
+{
+  "role": "engineer",
+  "location": "remote"
+}
+```
+
+Validated decision:
+
+```json
+{
+  "action": "accept_negotiation",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request"
+}
+```
+
+Execution result: Passed through `execute_decision_against_existing_scenario`; result was mutating: `{"executed": true, "action": "accept_negotiation"}`.
+
+Resulting event history:
+
+```json
+[
+  {
+    "type": "open_negotiation_request",
+    "actor_agent_id": "agent_1",
+    "negotiation_id": "negotiation_inbound_request"
+  },
+  {
+    "type": "open_negotiation_response",
+    "actor_agent_id": "agent_2",
+    "negotiation_id": "negotiation_inbound_request",
+    "payload": {
+      "decision": "accept"
+    }
+  }
+]
+```
+
+### Bad fit
+
+Request subject:
+
+```json
+{
+  "role": "sales",
+  "location": "onsite"
+}
+```
+
+Validated decision:
+
+```json
+{
+  "action": "reject_negotiation",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request",
+  "reason": "Agent prefers remote roles and is not aligned with onsite sales position."
+}
+```
+
+Execution result: Passed through `execute_decision_against_existing_scenario`; result was mutating: `{"executed": true, "action": "reject_negotiation"}`.
+
+Resulting event history:
+
+```json
+[
+  {
+    "type": "open_negotiation_request",
+    "actor_agent_id": "agent_1",
+    "negotiation_id": "negotiation_inbound_request"
+  },
+  {
+    "type": "open_negotiation_response",
+    "actor_agent_id": "agent_2",
+    "negotiation_id": "negotiation_inbound_request",
+    "payload": {
+      "decision": "reject"
+    }
+  }
+]
+```
+
+Observations:
+
+- With explicit fit criteria and a matching request, the model chose `accept_negotiation`.
+- With explicit fit criteria and a clearly mismatching request, the model chose `reject_negotiation`.
+- Both decisions passed local validation and executed through the supervised executor.
+- The fit criteria are currently dev-only context fields, not persisted production agent profile data.
+
+Follow-ups:
+
+- Add an ambiguous-fit scenario to observe how this provider/model handles missing fit-relevant information.
+- Decide whether durable agent preference/profile data belongs in the MVP scope before moving fit criteria into production behavior.
+
+## 2026-09-20: GPT-4o Mini Ambiguous-Fit Inbound Request
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Scenario: Inbound request scenario with explicit dev-only fit criteria where one criterion matches and one criterion is missing from the request subject.
+
+Prompt/manual reference: `docs/development/llm-experiment-manual.md`, context package with explicit request subject, observing-agent fit criteria, and OpenAI Responses API JSON Schema response format.
+
+Observing-agent fit criteria:
+
+```json
+{
+  "preferred_role": "engineer",
+  "preferred_location": "remote"
+}
+```
+
+Request subject:
+
+```json
+{
+  "role": "engineer"
+}
+```
+
+Platform expectation: the model decision should remain well-formed and executable only through protocol services. The run records how this provider/model weighs missing location information; the platform does not treat one business judgment as universally correct.
+
+Validated decision:
+
+```json
+{
+  "action": "accept_negotiation",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request"
+}
+```
+
+Execution result: Passed through `execute_decision_against_existing_scenario`; result was mutating: `{"executed": true, "action": "accept_negotiation"}`.
+
+Resulting event history:
+
+```json
+[
+  {
+    "type": "open_negotiation_request",
+    "actor_agent_id": "agent_1",
+    "negotiation_id": "negotiation_inbound_request",
+    "payload": {
+      "subject": {
+        "role": "engineer"
+      }
+    }
+  },
+  {
+    "type": "open_negotiation_response",
+    "actor_agent_id": "agent_2",
+    "negotiation_id": "negotiation_inbound_request",
+    "payload": {
+      "decision": "accept"
+    }
+  }
+]
+```
+
+Observations:
+
+- The model accepted when role matched and location was absent.
+- The local validator and executor correctly enforced schema/protocol rules without encoding a platform-level suitability policy such as "missing preference data must defer."
+- This distinction is intentional for a bring-your-own-agent platform: schema-constrained output and protocol-safe execution make actions well-formed and authorized, while agent/client/principal instructions determine business judgment.
+
+Follow-ups:
+
+- Keep future experiments focused on whether context is exposed clearly and whether actions remain protocol-valid.
+- If users want conservative suitability behavior, support agent-owned goals/instructions or principal policy configuration rather than hard-coding a platform-wide correctness rule.
