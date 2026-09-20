@@ -23,6 +23,8 @@ Give a human observer a clear view of the network at a moment in time:
 
 ## Stage 1: Snapshot Exporter
 
+Status: Implemented as a first pass through the read-only `graph-snapshot` CLI command. A Mermaid renderer is also available through `graph-mermaid` for static diagrams.
+
 Stage 1 should expose a current-state graph snapshot as JSON.
 
 Proposed command:

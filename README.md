@@ -138,6 +138,7 @@ Implemented and tested:
 - LLM decision contract validation.
 - Validated LLM decision execution for negotiation responses, messages, match proposals, match acceptance, close, and defer.
 - Dev experiment scenario helpers under `net_working_platform.experiments`.
+- Read-only graph snapshot export for observer tooling.
 - CLI lifecycle commands.
 
 Current automated verification:
@@ -202,3 +203,7 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
 - [Graph Visualizer Plan](docs/development/graph-visualizer-plan.md)
+- [Referral Relay Seed Graph](docs/development/referral-relay-graph.md)
+- [Two-Client/Two-Principal Starting Graph](docs/development/two-client-two-principal-starting-graph.mmd)
+- [Graph Evolution Demo: Initial Graph](docs/development/graph-evolution-demo/initial_graph.mmd)
+- [Graph Evolution Demo: Final Graph](docs/development/graph-evolution-demo/final_graph.mmd)

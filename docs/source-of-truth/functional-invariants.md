@@ -203,6 +203,19 @@ Protected by:
 - `test_cli_returns_agent_decision_context`
 - `test_get_agent_decision_context_includes_capacity_when_limit_supplied`
 
+### INV-H-005: Graph Snapshots Are Structured And Read-Only
+
+Graph snapshot retrieval must return structured, viewer-ready, JSON-friendly data without mutating graph, negotiation, or protocol-event state. Snapshots must include nodes and relationship edges with short labels plus richer details for inspection. Negotiations may appear as protocol overlay edges.
+
+Protected by:
+
+- `test_build_graph_snapshot_returns_viewer_ready_nodes_and_edges`
+- `test_sql_graph_snapshot_reader_reads_current_graph_state`
+- `test_cli_returns_graph_snapshot`
+- `test_render_graph_snapshot_mermaid_uses_short_labels_and_edge_styles`
+- `test_cli_returns_graph_mermaid`
+- `test_graph_evolution_demo_writes_before_after_graphs`
+
 ## LLM Decision Invariants
 
 ### INV-L-001: LLM Decisions Use A Closed Action Set
@@ -362,9 +375,16 @@ Protected by:
 | `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
 | `test_get_agent_decision_context_includes_accept_match_after_match_proposal` | INV-H-004 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
+| `test_build_graph_snapshot_returns_viewer_ready_nodes_and_edges` | INV-H-005 |
+| `test_sql_graph_snapshot_reader_reads_current_graph_state` | INV-H-005 |
+| `test_cli_returns_graph_snapshot` | INV-H-005, INV-CLI-001, INV-CLI-002 |
+| `test_render_graph_snapshot_mermaid_uses_short_labels_and_edge_styles` | INV-H-005 |
+| `test_cli_returns_graph_mermaid` | INV-H-005, INV-CLI-001, INV-CLI-002 |
+| `test_graph_evolution_demo_writes_before_after_graphs` | INV-H-005 |
 | `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
 | `test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations` | INV-G-001, INV-N-003, INV-N-004, INV-H-001, INV-H-004 |
 | `test_parallel_inbound_scenario_exposes_two_requested_negotiations` | INV-G-001, INV-N-002, INV-H-001, INV-H-004, INV-C-001 |
+| `test_two_client_two_principal_scenario_creates_requested_starting_graph` | INV-G-001, INV-E-003, INV-N-003, INV-H-005 |
 | `test_parse_llm_accept_negotiation_decision` | INV-L-001, INV-L-002 |
 | `test_parse_llm_decision_rejects_unknown_action` | INV-L-001 |
 | `test_parse_llm_decision_requires_action_specific_fields` | INV-L-002 |

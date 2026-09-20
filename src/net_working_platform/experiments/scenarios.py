@@ -5,8 +5,20 @@ from datetime import datetime, timezone
 
 from sqlalchemy import create_engine
 
-from net_working_platform.domain.model import AgentConnection, AgentConnectionState, NegotiationDecision, Node, NodeType
-from net_working_platform.storage.repositories import SqlAgentConnectionRepository, SqlNodeRepository
+from net_working_platform.domain.model import (
+    AgentConnection,
+    AgentConnectionState,
+    NegotiationDecision,
+    Node,
+    NodeType,
+    RepresentationEdge,
+    RepresentationState,
+)
+from net_working_platform.storage.repositories import (
+    SqlAgentConnectionRepository,
+    SqlNodeRepository,
+    SqlRepresentationEdgeRepository,
+)
 from net_working_platform.storage.schema import metadata
 from net_working_platform.storage.services import create_sql_negotiation_service
 
@@ -37,6 +49,16 @@ class ParallelInboundScenario:
     requesting_agent_ids: tuple[str, str]
     negotiation_ids: tuple[str, str]
     decision_context: dict[str, object]
+
+
+@dataclass(frozen=True)
+class TwoClientTwoPrincipalScenario:
+    db_url: str
+    client_agent_ids: tuple[str, str]
+    principal_agent_ids: tuple[str, str]
+    client_ids: tuple[str, str]
+    principal_ids: tuple[str, str]
+    negotiation_ids: tuple[str, str, str]
 
 
 def seed_inbound_request_scenario(
@@ -181,4 +203,100 @@ def seed_parallel_inbound_scenario(db_url: str) -> ParallelInboundScenario:
         requesting_agent_ids=("agent_1", "agent_3"),
         negotiation_ids=(first.id, second.id),
         decision_context=decision_context,
+    )
+
+
+def seed_two_client_two_principal_scenario(db_url: str) -> TwoClientTwoPrincipalScenario:
+    """Create a two-client-agent/two-principal-agent starting graph.
+
+    The first client agent has open negotiations with both principal agents.
+    The second client agent has an open negotiation with only the first principal
+    agent and no connection to the second principal agent.
+    """
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+
+        for node_id, node_type, display_name in [
+            ("client_agent_1", NodeType.AGENT, "Client Agent 1"),
+            ("client_agent_2", NodeType.AGENT, "Client Agent 2"),
+            ("principal_agent_1", NodeType.AGENT, "Principal Agent 1"),
+            ("principal_agent_2", NodeType.AGENT, "Principal Agent 2"),
+            ("client_1", NodeType.CLIENT, "Client 1"),
+            ("client_2", NodeType.CLIENT, "Client 2"),
+            ("principal_1", NodeType.PRINCIPAL, "Principal 1"),
+            ("principal_2", NodeType.PRINCIPAL, "Principal 2"),
+        ]:
+            nodes.add(Node(id=node_id, type=node_type), display_name=display_name)
+
+        for edge in [
+            RepresentationEdge("client_agent_1", "client_1", NodeType.CLIENT, RepresentationState.ACTIVE),
+            RepresentationEdge("client_agent_2", "client_2", NodeType.CLIENT, RepresentationState.ACTIVE),
+            RepresentationEdge("principal_agent_1", "principal_1", NodeType.PRINCIPAL, RepresentationState.ACTIVE),
+            RepresentationEdge("principal_agent_2", "principal_2", NodeType.PRINCIPAL, RepresentationState.ACTIVE),
+        ]:
+            representation_edges.add(edge)
+
+        for agent_connection in [
+            AgentConnection("client_agent_1", "principal_agent_1", AgentConnectionState.ACTIVE),
+            AgentConnection("client_agent_1", "principal_agent_2", AgentConnectionState.ACTIVE),
+            AgentConnection("client_agent_2", "principal_agent_1", AgentConnectionState.ACTIVE),
+        ]:
+            agent_connections.add(agent_connection)
+
+        ids = iter(
+            [
+                "negotiation_client1_principal1",
+                "negotiation_client1_principal2",
+                "negotiation_client2_principal1",
+            ]
+        )
+        service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: next(ids),
+            now=lambda: datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc),
+        )
+        negotiation_specs = [
+            (
+                "client_agent_1",
+                "principal_agent_1",
+                {"client_id": "client_1", "principal_id": "principal_1", "role": "backend engineer"},
+            ),
+            (
+                "client_agent_1",
+                "principal_agent_2",
+                {"client_id": "client_1", "principal_id": "principal_2", "role": "platform engineer"},
+            ),
+            (
+                "client_agent_2",
+                "principal_agent_1",
+                {"client_id": "client_2", "principal_id": "principal_1", "role": "data engineer"},
+            ),
+        ]
+        negotiations = []
+        for from_agent_id, to_agent_id, subject in negotiation_specs:
+            negotiation = service.request_negotiation(
+                from_agent_id=from_agent_id,
+                to_agent_id=to_agent_id,
+                subject=subject,
+                max_open_negotiations=5,
+            )
+            service.respond_to_negotiation(
+                negotiation_id=negotiation.id,
+                actor_agent_id=to_agent_id,
+                decision=NegotiationDecision.ACCEPT,
+            )
+            negotiations.append(negotiation)
+
+    return TwoClientTwoPrincipalScenario(
+        db_url=db_url,
+        client_agent_ids=("client_agent_1", "client_agent_2"),
+        principal_agent_ids=("principal_agent_1", "principal_agent_2"),
+        client_ids=("client_1", "client_2"),
+        principal_ids=("principal_1", "principal_2"),
+        negotiation_ids=tuple(negotiation.id for negotiation in negotiations),
     )

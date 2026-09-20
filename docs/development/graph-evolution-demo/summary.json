@@ -1,0 +1,31 @@
+{
+  "db_url": "sqlite+pysqlite:///docs/development/graph-evolution-demo.db",
+  "negotiation_ids": [
+    "negotiation_client1_principal1",
+    "negotiation_client1_principal2",
+    "negotiation_client2_principal1"
+  ],
+  "outputs": {
+    "final_graph": "docs\\development\\graph-evolution-demo\\final_graph.mmd",
+    "initial_graph": "docs\\development\\graph-evolution-demo\\initial_graph.mmd",
+    "summary": "docs\\development\\graph-evolution-demo\\summary.json"
+  },
+  "rounds": [
+    {
+      "action": "propose_match",
+      "actor_agent_id": "client_agent_1",
+      "negotiation_id": "negotiation_client1_principal1"
+    },
+    {
+      "action": "accept_match",
+      "actor_agent_id": "principal_agent_1",
+      "negotiation_id": "negotiation_client1_principal1"
+    },
+    {
+      "action": "close_negotiation",
+      "actor_agent_id": "client_agent_1",
+      "negotiation_id": "negotiation_client1_principal2"
+    }
+  ],
+  "scenario": "two_client_two_principal"
+}

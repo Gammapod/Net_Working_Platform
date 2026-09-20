@@ -126,3 +126,65 @@ def test_cli_returns_agent_decision_context(tmp_path: Path, capsys) -> None:
     ]
     assert context["open_negotiations"] == []
     assert [event["type"] for event in context["recent_events"]] == ["open_negotiation_request"]
+
+
+def test_cli_returns_graph_snapshot(tmp_path: Path, capsys) -> None:
+    """Protects INV-H-005, INV-CLI-001, and INV-CLI-002."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
+
+    run_cli(db_url, "setup-db", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_1", "agent", "--display-name", "Agent One", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_2", "agent", "--display-name", "Agent Two", capsys=capsys)
+    run_cli(db_url, "connect-agents", "agent_1", "agent_2", capsys=capsys)
+    requested = run_cli(
+        db_url,
+        "request-negotiation",
+        "agent_1",
+        "agent_2",
+        "--subject",
+        '{"role":"engineer"}',
+        capsys=capsys,
+    )
+
+    snapshot = run_cli(db_url, "graph-snapshot", capsys=capsys)
+
+    assert snapshot["source"] == "current_database_state"
+    assert [node["label"] for node in snapshot["nodes"]] == ["Agent One", "Agent Two"]
+    assert {
+        (edge["kind"], edge["source"], edge["target"], edge["label"])
+        for edge in snapshot["edges"]
+    } == {
+        ("agent_connection", "agent_1", "agent_2", "active"),
+        ("negotiation", "agent_1", "agent_2", "requested"),
+    }
+    negotiation_edge = next(edge for edge in snapshot["edges"] if edge["id"] == f"negotiation:{requested['id']}")
+    assert negotiation_edge["details"]["subject"] == {"role": "engineer"}
+    assert negotiation_edge["details"]["recent_event_count"] == 1
+
+
+def test_cli_returns_graph_mermaid(tmp_path: Path, capsys) -> None:
+    """Protects INV-H-005, INV-CLI-001, and INV-CLI-002."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
+
+    run_cli(db_url, "setup-db", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_1", "agent", "--display-name", "Agent One", capsys=capsys)
+    run_cli(db_url, "create-node", "agent_2", "agent", "--display-name", "Agent Two", capsys=capsys)
+    run_cli(db_url, "connect-agents", "agent_1", "agent_2", capsys=capsys)
+    run_cli(
+        db_url,
+        "request-negotiation",
+        "agent_1",
+        "agent_2",
+        "--subject",
+        '{"role":"engineer"}',
+        capsys=capsys,
+    )
+
+    assert main(["--db-url", db_url, "graph-mermaid"]) == 0
+    output = capsys.readouterr().out
+
+    assert output.startswith("flowchart LR\n")
+    assert 'agent_1["Agent One"]' in output
+    assert 'agent_2["Agent Two"]' in output
+    assert 'agent_1 -->|"active"| agent_2' in output
+    assert 'agent_1 ==>|"requested"| agent_2' in output

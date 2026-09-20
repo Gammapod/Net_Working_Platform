@@ -8,6 +8,8 @@ from uuid import uuid4
 
 from sqlalchemy import create_engine
 
+from net_working_platform.application.graph_snapshots import build_graph_snapshot
+from net_working_platform.application.graph_mermaid import render_graph_snapshot_mermaid
 from net_working_platform.domain.model import (
     AgentConnection,
     AgentConnectionState,
@@ -17,6 +19,7 @@ from net_working_platform.domain.model import (
     NodeType,
     ProtocolEvent,
 )
+from net_working_platform.storage.graph_snapshots import SqlGraphSnapshotReader
 from net_working_platform.storage.repositories import SqlAgentConnectionRepository, SqlNodeRepository
 from net_working_platform.storage.schema import metadata
 from net_working_platform.storage.services import create_sql_negotiation_service
@@ -123,6 +126,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
+        if args.command == "graph-snapshot":
+            _emit(
+                build_graph_snapshot(
+                    SqlGraphSnapshotReader(connection),
+                    now=lambda: datetime.now(timezone.utc),
+                    include_negotiations=not args.exclude_negotiations,
+                )
+            )
+            return 0
+
+        if args.command == "graph-mermaid":
+            snapshot = build_graph_snapshot(
+                SqlGraphSnapshotReader(connection),
+                now=lambda: datetime.now(timezone.utc),
+                include_negotiations=not args.exclude_negotiations,
+            )
+            print(render_graph_snapshot_mermaid(snapshot), end="")
+            return 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
 
@@ -180,6 +202,12 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_context.add_argument("agent_id")
     agent_context.add_argument("--recent-event-limit", type=int, default=20)
     agent_context.add_argument("--max-active-negotiations", type=int)
+
+    graph_snapshot = subparsers.add_parser("graph-snapshot")
+    graph_snapshot.add_argument("--exclude-negotiations", action="store_true")
+
+    graph_mermaid = subparsers.add_parser("graph-mermaid")
+    graph_mermaid.add_argument("--exclude-negotiations", action="store_true")
 
     return parser
 
