@@ -10,7 +10,7 @@ from net_working_platform.application.llm_decisions import execute_llm_decision,
 from net_working_platform.domain.model import NegotiationDecision, ProtocolEventType
 from net_working_platform.storage.repositories import SqlProtocolEventRepository
 from net_working_platform.storage.services import create_sql_negotiation_service
-from tests.support.llm_scenarios import seed_inbound_request_scenario
+from net_working_platform.experiments.scenarios import seed_inbound_request_scenario
 
 
 @dataclass

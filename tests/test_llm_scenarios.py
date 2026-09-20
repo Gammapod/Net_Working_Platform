@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.support.llm_scenarios import (
+from net_working_platform.experiments.scenarios import (
     seed_inbound_request_scenario,
     seed_parallel_inbound_scenario,
     seed_referral_relay_scenario,

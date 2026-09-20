@@ -134,8 +134,10 @@ Implemented and tested:
 - SQL-backed service wiring.
 - Read-only agent decision context for constrained LLM experiments.
 - Explicit capacity fields in agent decision context.
+- Full protocol and valid-next-action fields in agent decision context.
 - LLM decision contract validation.
-- Validated LLM decision execution for accept, reject, and defer.
+- Validated LLM decision execution for negotiation responses, messages, match proposals, match acceptance, close, and defer.
+- Dev experiment scenario helpers under `net_working_platform.experiments`.
 - CLI lifecycle commands.
 
 Current automated verification:
@@ -199,3 +201,4 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [LLM Experiment Plan](docs/development/llm-experiment-plan.md)
 - [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
+- [Graph Visualizer Plan](docs/development/graph-visualizer-plan.md)

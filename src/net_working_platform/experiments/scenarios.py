@@ -44,12 +44,7 @@ def seed_inbound_request_scenario(
     *,
     subject: dict[str, object] | None = None,
 ) -> InboundRequestScenario:
-    """Create a dev/test-only scenario for one-step LLM decision observation.
-
-    The scenario creates two agents, connects agent_1 to agent_2, opens a
-    requested negotiation from agent_1 to agent_2, and returns agent_2's
-    structured decision context.
-    """
+    """Create a dev/test scenario for one-step LLM decision observation."""
     engine = create_engine(db_url)
     metadata.create_all(engine)
 

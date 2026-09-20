@@ -17,7 +17,7 @@ from net_working_platform.application.llm_decisions import (
 from net_working_platform.domain.model import Negotiation, ProtocolEvent
 from net_working_platform.storage.repositories import SqlNegotiationRepository, SqlProtocolEventRepository
 from net_working_platform.storage.services import create_sql_negotiation_service
-from tests.support.llm_scenarios import seed_inbound_request_scenario
+from net_working_platform.experiments.scenarios import seed_inbound_request_scenario
 
 
 EXECUTOR_SUPPORTED_ACTIONS = [
