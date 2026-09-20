@@ -24,6 +24,8 @@ def test_context_only_package_outputs_provider_neutral_prompt_without_execution(
             "accept_negotiation",
             "reject_negotiation",
             "send_message",
+            "propose_match",
+            "accept_match",
             "close_negotiation",
             "defer",
         ],

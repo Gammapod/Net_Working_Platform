@@ -14,16 +14,33 @@ OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body"],
+    "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body", "proposal"],
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["accept_negotiation", "reject_negotiation", "send_message", "close_negotiation", "defer"],
+            "enum": [
+                "accept_negotiation",
+                "reject_negotiation",
+                "send_message",
+                "propose_match",
+                "accept_match",
+                "close_negotiation",
+                "defer",
+            ],
         },
         "actor_agent_id": {"type": "string"},
         "negotiation_id": {"type": "string"},
         "reason": {"type": "string"},
         "body": {"type": "string"},
+        "proposal": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["summary", "details"],
+            "properties": {
+                "summary": {"type": "string"},
+                "details": {"type": "string"},
+            },
+        },
     },
 }
 
@@ -49,7 +66,7 @@ def request_openai_decision(
     payload = {
         "model": model,
         "input": prompt,
-        "max_output_tokens": 200,
+        "max_output_tokens": 500,
         "text": {
             "format": {
                 "type": "json_schema",
@@ -104,6 +121,19 @@ def _to_contract_decision(value: dict[str, Any]) -> dict[str, Any]:
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
             "body": value["body"],
+        }
+    if action == "propose_match":
+        return {
+            "action": value["action"],
+            "negotiation_id": value["negotiation_id"],
+            "actor_agent_id": value["actor_agent_id"],
+            "proposal": value["proposal"],
+        }
+    if action == "accept_match":
+        return {
+            "action": value["action"],
+            "negotiation_id": value["negotiation_id"],
+            "actor_agent_id": value["actor_agent_id"],
         }
     if action == "close_negotiation":
         return {

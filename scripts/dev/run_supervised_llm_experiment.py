@@ -24,6 +24,8 @@ EXECUTOR_SUPPORTED_ACTIONS = [
     "accept_negotiation",
     "reject_negotiation",
     "send_message",
+    "propose_match",
+    "accept_match",
     "close_negotiation",
     "defer",
 ]
@@ -46,11 +48,17 @@ For this experiment, choose one executable action from:
 - accept_negotiation
 - reject_negotiation
 - send_message
+- propose_match
+- accept_match
 - close_negotiation
 - defer
 
 Experiment instructions:
 <EXPERIMENT_INSTRUCTIONS>
+
+The decision context includes `supported_protocol_actions` for the full protocol and
+`valid_next_actions_by_negotiation` for the currently executable actions by negotiation.
+Choose an action from `valid_next_actions_by_negotiation` for the negotiation you are acting on.
 
 Decision context:
 <CONTEXT_JSON>

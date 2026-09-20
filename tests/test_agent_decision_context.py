@@ -109,6 +109,19 @@ def test_get_agent_decision_context_returns_structured_read_only_context() -> No
     assert context == {
         "agent_id": "agent_2",
         "active_load": 2,
+        "supported_protocol_actions": [
+            "accept_negotiation",
+            "reject_negotiation",
+            "send_message",
+            "propose_match",
+            "accept_match",
+            "close_negotiation",
+            "defer",
+        ],
+        "valid_next_actions_by_negotiation": {
+            "requested_in": ["accept_negotiation", "reject_negotiation", "defer"],
+            "open_out": ["send_message", "propose_match", "close_negotiation", "defer"],
+        },
         "inbound_requested_negotiations": [
             {
                 "id": "requested_in",
@@ -173,3 +186,40 @@ def test_get_agent_decision_context_includes_capacity_when_limit_supplied() -> N
     assert context["active_load"] == 2
     assert context["max_active_negotiations"] == 5
     assert context["capacity_remaining"] == 3
+
+
+def test_get_agent_decision_context_includes_accept_match_after_match_proposal() -> None:
+    """Protects INV-H-004."""
+    negotiations = InMemoryNegotiations(
+        [Negotiation("open_with_proposal", "agent_1", "agent_2", NegotiationState.OPEN, {})]
+    )
+    events = InMemoryEvents(
+        [
+            ProtocolEvent(
+                type=ProtocolEventType.MATCH_PROPOSED,
+                actor_agent_id="agent_1",
+                negotiation_id="open_with_proposal",
+                occurred_at=datetime(2026, 1, 7, 12, 0, tzinfo=timezone.utc),
+                payload={"proposal": {"summary": "possible match"}},
+            )
+        ]
+    )
+    service = NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=negotiations,
+        events=events,
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 7, tzinfo=timezone.utc),
+    )
+
+    context = service.get_agent_decision_context(agent_id="agent_2")
+
+    assert context["valid_next_actions_by_negotiation"] == {
+        "open_with_proposal": [
+            "send_message",
+            "propose_match",
+            "accept_match",
+            "close_negotiation",
+            "defer",
+        ]
+    }

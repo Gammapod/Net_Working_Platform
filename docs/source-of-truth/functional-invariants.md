@@ -195,7 +195,7 @@ Protected by:
 
 ### INV-H-004: Agent Decision Context Is Structured And Read-Only
 
-Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, capacity information when supplied, inbound requested negotiations, open negotiations, and recent protocol events relevant to that agent.
+Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, capacity information when supplied, inbound requested negotiations, open negotiations, recent protocol events relevant to that agent, the full supported protocol action list, and valid next actions by active negotiation state.
 
 Protected by:
 
@@ -260,6 +260,8 @@ Protected by:
 - `test_execute_llm_accept_negotiation_decision_uses_service`
 - `test_execute_llm_reject_negotiation_decision_uses_service`
 - `test_execute_llm_send_message_decision_uses_service`
+- `test_execute_llm_propose_match_decision_uses_service`
+- `test_execute_llm_accept_match_decision_uses_service`
 - `test_execute_llm_close_negotiation_decision_uses_service`
 - `test_execute_llm_defer_decision_does_not_mutate_protocol_state`
 - `test_supervised_llm_accept_experiment_validates_executes_and_records_event`
@@ -358,6 +360,7 @@ Protected by:
 | `test_non_participant_cannot_close_negotiation` | INV-N-007 |
 | `test_get_agent_decision_context_returns_structured_read_only_context` | INV-H-004 |
 | `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
+| `test_get_agent_decision_context_includes_accept_match_after_match_proposal` | INV-H-004 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
 | `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
 | `test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations` | INV-G-001, INV-N-003, INV-N-004, INV-H-001, INV-H-004 |
@@ -370,6 +373,8 @@ Protected by:
 | `test_execute_llm_accept_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
 | `test_execute_llm_reject_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
 | `test_execute_llm_send_message_decision_uses_service` | INV-L-004, INV-N-004, INV-H-001 |
+| `test_execute_llm_propose_match_decision_uses_service` | INV-L-004, INV-N-005, INV-H-001 |
+| `test_execute_llm_accept_match_decision_uses_service` | INV-L-004, INV-N-005, INV-H-001 |
 | `test_execute_llm_close_negotiation_decision_uses_service` | INV-L-004, INV-N-006, INV-H-001 |
 | `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
 | `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
@@ -389,4 +394,6 @@ Protected by:
 | `test_openai_adapter_parses_schema_constrained_decision_text` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_message_decision` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_reject_decision` | INV-L-006 |
+| `test_openai_adapter_normalizes_schema_constrained_propose_match_decision` | INV-L-006 |
+| `test_openai_adapter_normalizes_schema_constrained_accept_match_decision` | INV-L-006 |
 | `test_openai_adapter_requires_api_key` | INV-L-006 |

@@ -20,6 +20,17 @@ from net_working_platform.domain.model import (
 )
 
 
+SUPPORTED_PROTOCOL_ACTIONS = [
+    "accept_negotiation",
+    "reject_negotiation",
+    "send_message",
+    "propose_match",
+    "accept_match",
+    "close_negotiation",
+    "defer",
+]
+
+
 class AgentConnectionRepository(Protocol):
     def get_between(self, from_agent_id: str, to_agent_id: str) -> AgentConnection | None: ...
 
@@ -224,10 +235,22 @@ class NegotiationService:
         negotiation_ids = [negotiation.id for negotiation in active_negotiations]
         recent_events = self._events.list_recent_for_agent(agent_id, negotiation_ids, recent_event_limit)
         active_load = self._negotiations.count_open_for_agent(agent_id)
+        histories = {
+            negotiation.id: self._events.list_for_negotiation(negotiation.id)
+            for negotiation in active_negotiations
+        }
 
         context: dict[str, object] = {
             "agent_id": agent_id,
             "active_load": active_load,
+            "supported_protocol_actions": SUPPORTED_PROTOCOL_ACTIONS,
+            "valid_next_actions_by_negotiation": {
+                negotiation.id: _valid_next_actions_for_negotiation(
+                    negotiation,
+                    histories[negotiation.id],
+                )
+                for negotiation in active_negotiations
+            },
             "inbound_requested_negotiations": [
                 _negotiation_to_context_record(negotiation)
                 for negotiation in active_negotiations
@@ -264,3 +287,20 @@ def _event_to_context_record(event: ProtocolEvent) -> dict[str, object]:
         "occurred_at": event.occurred_at.isoformat(),
         "payload": event.payload,
     }
+
+
+def _valid_next_actions_for_negotiation(
+    negotiation: Negotiation,
+    history: list[ProtocolEvent],
+) -> list[str]:
+    if negotiation.state == NegotiationState.REQUESTED:
+        return ["accept_negotiation", "reject_negotiation", "defer"]
+
+    if negotiation.state == NegotiationState.OPEN:
+        actions = ["send_message", "propose_match"]
+        if any(event.type == ProtocolEventType.MATCH_PROPOSED for event in history):
+            actions.append("accept_match")
+        actions.extend(["close_negotiation", "defer"])
+        return actions
+
+    return ["defer"]

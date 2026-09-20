@@ -107,16 +107,38 @@ Focus: open negotiations and discussion after a request is accepted. These exper
 | P2-1 | P1 | Referral relay through an intermediary | 3 agents | request, negotiation message, multiple negotiations if needed | Agents can use protocol messages to relay information through an intermediary while each action remains participant-authorized in its own negotiation. | Whether agents confuse negotiation IDs or roles; whether intermediary context includes enough event history; whether non-participant actions are rejected. | Completed once with `gpt-4o-mini`: three valid relay messages, no negotiation ID confusion |
 | P2-2 | P2 | Parallel inbound requests to one agent | 3 agents | request, accept/reject/defer, capacity context | Capacity and active-load context remains clear when one agent has multiple active or requested negotiations. | How the observing agent allocates attention; whether actions target the intended negotiation; whether active-load counts stay correct. | Completed once with `gpt-4o-mini`: accepted each requested negotiation by correct ID |
 
-### Phase 3 Direction Decision Criteria
+### Phase 3 Framing: Match Discussion And Optional Paths
 
-Use the results of Phase 1 and Phase 2 to choose the next protocol surface:
+Phase 1/2 results are sufficient to begin exploring richer match discussion. Phase 3 should be more open-ended than earlier phases: the goal is to learn what agents try to do when they have a flexible negotiation surface, not to force one correct path toward matching.
 
-- If agents can communicate over multiple turns but lack counterparties, prioritize graph creation/discovery.
-- If agents communicate but cannot evaluate claims or trust, prioritize evidence-gathering and event-backed attestations.
-- If agents communicate and gather enough fit information but lack a terminal outcome, prioritize negotiation/match-discussion and match proposal/acceptance protocol.
-- If agents repeatedly confuse event history, negotiation IDs, or participant roles, keep investing in context packaging and protocol ergonomics before adding a new surface.
+Net Working Platform should give agents options, preserve histories, and enforce protocol correctness. It should not prescribe a mandatory matching funnel. An agent may propose or accept a match with little evidence, ask for work samples first, negotiate pay, ask about principal expectations, or close the negotiation. Those choices should later be rewarded or punished by other agents, clients, principals, reputation, or downstream consequences rather than by platform-owned judgment about decision quality.
 
-Phase 1/2 are complete enough to move on when repeated runs show that actions validate, participant authorization holds, event logs remain coherent, and agents can continue from visible protocol history without relying on hidden state.
+Phase 3 should therefore test whether the protocol and context can facilitate or record:
+
+- direct match proposals;
+- evidence or work samples from a client/candidate side;
+- discussion of specific strengths, weaknesses, needs, or constraints;
+- further information about principal-side problem shape and expectations;
+- negotiations involving pay, conditions, availability, scope, or timing;
+- early match acceptance;
+- disagreement, deferral, or closure.
+
+The platform should continue to enforce action shape, participant authorization, state transitions, event persistence, and terminal-state behavior. It should not enforce rules such as "evidence must be gathered before proposing a match" or "pay must be negotiated before acceptance."
+
+### Phase 3 Backlog: Match Discussion Data-Gathering Runs
+
+| ID | Priority | Experiment | Agents | Protocol Surface | Platform Outcome | What To Record | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| P3-1 | P1 | Direct match proposal with minimal prior discussion | 2 agents | request, message, propose_match | A model can propose a match from visible context without a platform-required evidence path; proposal event is validated and recorded. | Proposal shape, prior history length, whether the model cites context, whether follow-up acceptance/closure is protocol-valid. | Completed once plus follow-up with `gpt-4o-mini`: first emitted invalid repeat accept; follow-up sent message |
+| P3-2 | P1 | Evidence/work-sample exchange before proposal | 2 agents | message, propose_match | Agents can exchange evidence-like payloads in messages and later propose a match; event history preserves the evidence trail. | What evidence/work sample language emerges; whether proposal references visible evidence; whether lack/quality of evidence affects model behavior. | Completed once with `gpt-4o-mini`: proposed match referencing evidence |
+| P3-3 | P1 | Principal expectations and problem-shape clarification | 2 agents | message, propose_match/defer/close | Principal-side expectations can be elicited and recorded before any terminal match action. | Questions asked, answers provided, whether agents preserve distinctions among role, constraints, expectations, and problem shape. | Completed once with `gpt-4o-mini`: asked clarification and received answer |
+| P3-4 | P1 | Pay/conditions negotiation before or after proposal | 2 agents | message, propose_match, accept_match/close | Agents can discuss compensation, conditions, scope, timing, or availability without a special terms protocol yet. | Whether agents keep terms attached to the right negotiation; whether proposals include or omit discussed terms; whether later acceptance remains protocol-valid. | Completed once with `gpt-4o-mini`: proposed terms-backed match |
+| P3-5 | P2 | Early match acceptance with sparse history | 2 agents | propose_match, accept_match | Platform allows early acceptance when protocol-valid and preserves sparse history for later evaluation by agents/principals. | How little history preceded acceptance; whether acceptance references a valid prior proposal; what later evaluator agents might critique. | Completed once with `gpt-4o-mini`: accepted sparse proposal |
+| P3-6 | P2 | Divergent agent strategies over the same context | 2+ runs/models/prompts | message, propose_match, accept_match, close/defer | Same context can produce different valid strategies without the platform declaring one correct. | Strategy differences, protocol validity, event histories available for later reputation/evaluation. | Completed once with `gpt-4o-mini`: decisive prompt repeated accept invalidly; evidence/terms prompts deferred |
+
+Phase 3 should produce both structured protocol observations and qualitative notes. It is acceptable if these runs reveal missing affordances rather than clean pass/fail outcomes. Use the results to decide whether to formalize new event types for evidence, terms, principal expectations, reputation, or match evaluation.
+
+Phase 3 follow-up: decision context now includes `supported_protocol_actions` and `valid_next_actions_by_negotiation`. Rerunning Phase 3 with those fields eliminated the repeated invalid `accept_negotiation` behavior observed in sparse open-negotiation contexts for `gpt-4o-mini`.
 
 ## Later: Graph Creation And Relationship Management
 

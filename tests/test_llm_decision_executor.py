@@ -44,6 +44,30 @@ class RecordingNegotiationService:
             )
         )
 
+    def propose_match(self, *, negotiation_id: str, actor_agent_id: str, proposal: dict[str, object]) -> None:
+        self.calls.append(
+            (
+                "propose_match",
+                {
+                    "negotiation_id": negotiation_id,
+                    "actor_agent_id": actor_agent_id,
+                    "proposal": proposal,
+                },
+            )
+        )
+
+    def accept_match(self, *, negotiation_id: str, actor_agent_id: str) -> dict[str, object]:
+        self.calls.append(
+            (
+                "accept_match",
+                {
+                    "negotiation_id": negotiation_id,
+                    "actor_agent_id": actor_agent_id,
+                },
+            )
+        )
+        return {"state": "matched"}
+
     def close_negotiation(self, *, negotiation_id: str, actor_agent_id: str, reason: str) -> dict[str, object]:
         self.calls.append(
             (
@@ -185,6 +209,59 @@ def test_execute_llm_close_negotiation_decision_uses_service() -> None:
         )
     ]
     assert result == {"executed": True, "action": "close_negotiation", "result": {"state": "closed"}}
+
+
+def test_execute_llm_propose_match_decision_uses_service() -> None:
+    """Protects INV-L-004, INV-N-005, and INV-H-001."""
+    service = RecordingNegotiationService()
+    proposal = {"summary": "Candidate appears relevant for principal need."}
+    decision = parse_llm_decision(
+        {
+            "action": "propose_match",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "agent_2",
+            "proposal": proposal,
+        }
+    )
+
+    result = execute_llm_decision(decision, service)
+
+    assert service.calls == [
+        (
+            "propose_match",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "agent_2",
+                "proposal": proposal,
+            },
+        )
+    ]
+    assert result == {"executed": True, "action": "propose_match", "result": None}
+
+
+def test_execute_llm_accept_match_decision_uses_service() -> None:
+    """Protects INV-L-004, INV-N-005, and INV-H-001."""
+    service = RecordingNegotiationService()
+    decision = parse_llm_decision(
+        {
+            "action": "accept_match",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "agent_1",
+        }
+    )
+
+    result = execute_llm_decision(decision, service)
+
+    assert service.calls == [
+        (
+            "accept_match",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "agent_1",
+            },
+        )
+    ]
+    assert result == {"executed": True, "action": "accept_match", "result": {"state": "matched"}}
 
 
 def test_supervised_llm_accept_experiment_validates_executes_and_records_event(tmp_path: Path) -> None:

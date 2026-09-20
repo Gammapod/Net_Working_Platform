@@ -687,3 +687,262 @@ Follow-ups:
 
 - Phase 3 can reasonably move beyond basic communication protocol. The strongest next candidate is negotiation/match-discussion, because agents can now exchange and relay information but do not yet have a structured terminal match proposal/acceptance surface in the live supervised harness.
 - Discovery/graph creation remains important, but the Phase 2 relay experiment suggests that communication can proceed when counterparties are already known; discovery becomes more compelling once match-discussion semantics exist.
+
+## 2026-09-20: GPT-4o Mini Phase 3 Match Discussion Data-Gathering Runs
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Harness changes before live runs:
+
+- The supervised LLM executor now executes `propose_match` and `accept_match` through existing application services.
+- The dev OpenAI adapter schema was widened to include `propose_match` and `accept_match`, with a constrained provider-facing proposal object containing `summary` and `details`.
+
+Verification before live runs:
+
+```text
+81 passed
+```
+
+### P3-1: Direct match proposal with minimal prior discussion
+
+Setup: accepted/open negotiation with minimal history for a remote backend engineer/API platform buildout need.
+
+Observed decision:
+
+```json
+{
+  "action": "accept_negotiation",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request"
+}
+```
+
+Protocol result: blocked by application service with `ProtocolViolation: open_negotiation_response is not valid for open negotiation` because the negotiation was already open.
+
+Adjusted follow-up: repeated the scenario with explicit instruction that the negotiation was already open and `accept_negotiation`/`reject_negotiation` were not valid next actions. The model chose a valid `send_message` asking for availability rather than proposing a match.
+
+Observation: sparse direct-match contexts may need clearer state/action affordances. The model sometimes treats "accept" as a generic positive/decisive action rather than the state-specific response to a requested negotiation. The protocol layer correctly prevented the invalid mutation.
+
+### P3-2: Evidence/work-sample exchange before proposal
+
+Setup: accepted/open negotiation for a frontend engineer/design-system implementation. `agent_1` sent two evidence-like messages: an accessible component library work sample and strengths/weaknesses.
+
+Observed decision:
+
+```json
+{
+  "action": "propose_match",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request",
+  "proposal": {
+    "summary": "Proposing a match for frontend engineer role",
+    "details": "Your experience with the accessible component library and strengths in React architecture and design tokens align with our project needs for the design-system implementation."
+  }
+}
+```
+
+Protocol result: validated and appended `match_proposed`.
+
+Observation: evidence-like messages were sufficient for the model to form a proposal that referenced visible event history.
+
+### P3-3: Principal expectations and problem-shape clarification
+
+Setup: accepted/open negotiation for a data engineer where principal expectations were vague.
+
+Observed turns:
+
+1. `agent_2` sent a clarification message asking for specific expectations for the data platform.
+2. `agent_1` replied with batch pipelines, warehouse modeling, stakeholder dashboards, and light on-call responsibility.
+
+Protocol result: both messages validated and appended through `send_message`.
+
+Observation: the model chose clarification instead of premature proposal when expectations were explicitly described as vague.
+
+### P3-4: Pay/conditions negotiation before or after proposal
+
+Setup: accepted/open negotiation with candidate compensation/remote preferences and principal budget/hybrid flexibility already in messages.
+
+Observed decision:
+
+```json
+{
+  "action": "propose_match",
+  "actor_agent_id": "agent_1",
+  "negotiation_id": "negotiation_inbound_request",
+  "proposal": {
+    "summary": "Proposed Match Terms",
+    "details": "Compensation of 200k plus equity; two remote days weekly with flexible hybrid attendance."
+  }
+}
+```
+
+Protocol result: validated and appended `match_proposed`.
+
+Observation: plain messages were enough to carry pay/conditions into a later proposal. No dedicated terms protocol was required for this basic run, though a future terms event could improve structure.
+
+### P3-5: Early match acceptance with sparse history
+
+Setup: accepted/open negotiation for security review automation. A match was proposed with explicit caveat that evidence had not been gathered.
+
+Observed decision:
+
+```json
+{
+  "action": "accept_match",
+  "actor_agent_id": "agent_1",
+  "negotiation_id": "negotiation_inbound_request"
+}
+```
+
+Protocol result: validated, appended `match_accepted`, and marked the negotiation `matched`.
+
+Observation: early acceptance worked exactly as intended from a platform perspective: protocol-valid, history-preserving, and not blocked by platform-owned sufficiency judgment.
+
+### P3-6: Divergent agent strategies over the same context
+
+Setup: same sparse accepted/open backend engineer/API reliability context, run in separate databases with three different strategy instructions.
+
+Observed decisions:
+
+- Decisive/direct strategy: returned `accept_negotiation`; blocked as invalid for open negotiation.
+- Evidence-gathering strategy: returned `defer` with reason `Need to gather more evidence before proceeding with negotiation.`
+- Pay/conditions strategy: returned `defer` with reason `Need more clarity on pay and conditions before proceeding with the match.`
+
+Observation: prompts produced divergent strategies over the same context, which is expected and useful. The interesting failure mode was again state/action vocabulary: a "decisive" strategy reached for `accept_negotiation` instead of `propose_match` or `accept_match`.
+
+### Phase 3 observations
+
+- `propose_match` and `accept_match` now work through supervised execution and existing application services.
+- Evidence/work-sample and pay/conditions content can be carried through ordinary messages and referenced in proposals.
+- Early match acceptance is possible and auditable without platform judgment about adequacy of evidence.
+- The most important unexpected behavior was repeated `accept_negotiation` after a negotiation was already open. This suggests the action names may be too easy for models to interpret semantically rather than state-specifically.
+
+Follow-ups:
+
+- Consider improving context packaging with a `valid_next_actions` field derived from current negotiation state, rather than relying only on prose and service rejection.
+- Consider renaming or documenting actions more explicitly for models, for example "respond_to_requested_negotiation" vs "accept_match".
+- Consider formalizing optional structured event types for terms/evidence only after more open-ended runs show repeated need; current messages were adequate for basic evidence and terms carriage.
+
+## 2026-09-20: Phase 3 Rerun With Valid Next Actions Context
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only schema-constrained adapter in `scripts/dev/openai_provider.py`.
+
+Context change before rerun:
+
+- Agent decision context now includes `supported_protocol_actions`, the full protocol action list.
+- Agent decision context now includes `valid_next_actions_by_negotiation`, derived from each active negotiation's current state and match-proposal history.
+- Prompt guidance now says to choose an action from `valid_next_actions_by_negotiation` for the negotiation being acted on, while still exposing the full protocol.
+
+Verification before rerun:
+
+```text
+82 passed
+```
+
+### Before/after summary
+
+Before adding valid next actions, sparse open-negotiation contexts produced invalid repeated `accept_negotiation` in two important places:
+
+- P3-1 direct/minimal prior discussion.
+- P3-6 decisive/direct strategy.
+
+After adding valid next actions, the same classes of runs produced no invalid actions:
+
+- P3-1 chose `propose_match`.
+- P3-6 decisive/direct strategy chose `propose_match`.
+- P3-6 evidence-gathering strategy chose `send_message`.
+- P3-6 pay/conditions strategy chose `send_message`.
+
+### P3-1 rerun: direct proposal
+
+Valid next actions exposed:
+
+```json
+{
+  "negotiation_inbound_request": [
+    "send_message",
+    "propose_match",
+    "close_negotiation",
+    "defer"
+  ]
+}
+```
+
+Observed decision:
+
+```json
+{
+  "action": "propose_match",
+  "actor_agent_id": "agent_2",
+  "negotiation_id": "negotiation_inbound_request",
+  "proposal": {
+    "summary": "Match proposal for backend engineer role in API platform buildout.",
+    "details": "This proposal includes the scope of work for developing the required API platform, ensuring a robust backend architecture, and outlining milestones for project delivery."
+  }
+}
+```
+
+Protocol result: validated and appended `match_proposed`.
+
+### P3-2 rerun: evidence/work sample
+
+Observed decision: `propose_match`, again referencing visible evidence in `proposal.details`.
+
+Protocol result: validated and appended `match_proposed`.
+
+### P3-3 rerun: vague expectations
+
+Observed turns:
+
+1. `agent_2` sent a clarification message asking for details about the data platform and expectations.
+2. `agent_1` answered with batch pipelines, warehouse modeling, stakeholder dashboards, and minimal on-call responsibility.
+
+Protocol result: both messages validated and appended.
+
+### P3-4 rerun: pay/conditions
+
+Observed decision: `propose_match` with compensation and remote/flexibility terms in `proposal.details`.
+
+Protocol result: validated and appended `match_proposed`.
+
+### P3-5 rerun: sparse early acceptance
+
+Valid next actions exposed after seeded proposal:
+
+```json
+{
+  "negotiation_inbound_request": [
+    "send_message",
+    "propose_match",
+    "accept_match",
+    "close_negotiation",
+    "defer"
+  ]
+}
+```
+
+Observed decision: `accept_match`.
+
+Protocol result: validated, appended `match_accepted`, and marked the negotiation `matched`.
+
+### P3-6 rerun: divergent strategies
+
+Observed decisions over the same sparse context:
+
+- Decisive/direct strategy: `propose_match`.
+- Evidence-gathering strategy: `send_message` asking for project requirements/expectations.
+- Pay/conditions strategy: `send_message` asking to discuss requirements/expectations before matching.
+
+Protocol result: all decisions validated and executed.
+
+### Observations
+
+- `valid_next_actions_by_negotiation` was a high-leverage context improvement. It preserved full protocol awareness while materially reducing state/action confusion.
+- Keeping `supported_protocol_actions` visible remains useful for planning, but the per-negotiation valid-action list gives the model a concrete executable affordance.
+- The executor still needs to remain defensive because bring-your-own agents may ignore context or use their own tooling, but model-facing ergonomics improved substantially.
+- The rerun supports exposing both full protocol and valid current actions rather than hiding the protocol surface entirely.
+
+Follow-ups:
+
+- Consider adding `valid_next_actions_by_negotiation` to any future agent-facing API/CLI surfaces, not just dev experiment context.
+- Consider adding optional reasons/descriptions for why an action is valid or invalid if models continue to confuse state transitions in larger scenarios.

@@ -42,6 +42,10 @@ class LlmNegotiationService(Protocol):
 
     def send_message(self, *, negotiation_id: str, actor_agent_id: str, body: str) -> object: ...
 
+    def propose_match(self, *, negotiation_id: str, actor_agent_id: str, proposal: dict[str, object]) -> object: ...
+
+    def accept_match(self, *, negotiation_id: str, actor_agent_id: str) -> object: ...
+
     def close_negotiation(self, *, negotiation_id: str, actor_agent_id: str, reason: str) -> object: ...
 
 
@@ -237,6 +241,21 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
         )
         return {"executed": True, "action": decision.action.value, "result": result}
 
+    if decision.action == LlmDecisionAction.PROPOSE_MATCH:
+        result = service.propose_match(
+            negotiation_id=_required_string(decision, "negotiation_id"),
+            actor_agent_id=_required_string(decision, "actor_agent_id"),
+            proposal=_required_object(decision, "proposal"),
+        )
+        return {"executed": True, "action": decision.action.value, "result": result}
+
+    if decision.action == LlmDecisionAction.ACCEPT_MATCH:
+        result = service.accept_match(
+            negotiation_id=_required_string(decision, "negotiation_id"),
+            actor_agent_id=_required_string(decision, "actor_agent_id"),
+        )
+        return {"executed": True, "action": decision.action.value, "result": result}
+
     if decision.action == LlmDecisionAction.CLOSE_NEGOTIATION:
         result = service.close_negotiation(
             negotiation_id=_required_string(decision, "negotiation_id"),
@@ -260,4 +279,11 @@ def _required_string(decision: LlmDecision, field: str) -> str:
     value = decision.payload[field]
     if not isinstance(value, str):
         raise LlmDecisionExecutionError(f"field {field} must be string")
+    return value
+
+
+def _required_object(decision: LlmDecision, field: str) -> dict[str, object]:
+    value = decision.payload[field]
+    if not isinstance(value, dict):
+        raise LlmDecisionExecutionError(f"field {field} must be object")
     return value

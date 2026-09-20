@@ -47,7 +47,7 @@ def test_openai_adapter_builds_schema_constrained_responses_request() -> None:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"defer","actor_agent_id":"agent_2","negotiation_id":"","reason":"needs_more_information","body":""}',
+                            "text": '{"action":"defer","actor_agent_id":"agent_2","negotiation_id":"","reason":"needs_more_information","body":"","proposal":{"summary":"","details":""}}',
                         }
                     ]
                 }
@@ -87,7 +87,7 @@ def test_openai_adapter_parses_schema_constrained_decision_text() -> None:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"accept_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not used","body":""}',
+                            "text": '{"action":"accept_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not used","body":"","proposal":{"summary":"","details":""}}',
                         }
                     ]
                 }
@@ -115,7 +115,7 @@ def test_openai_adapter_normalizes_schema_constrained_message_decision() -> None
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"send_message","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"","body":"Can you clarify?"}',
+                            "text": '{"action":"send_message","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"","body":"Can you clarify?","proposal":{"summary":"","details":""}}',
                         }
                     ]
                 }
@@ -147,7 +147,7 @@ def test_openai_adapter_normalizes_schema_constrained_reject_decision() -> None:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": '{"action":"reject_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not proceeding","body":"provider-only"}',
+                            "text": '{"action":"reject_negotiation","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"not proceeding","body":"provider-only","proposal":{"summary":"","details":""}}',
                         }
                     ]
                 }
@@ -167,6 +167,72 @@ def test_openai_adapter_normalizes_schema_constrained_reject_decision() -> None:
         "negotiation_id": "negotiation_1",
         "actor_agent_id": "agent_2",
         "reason": "not proceeding",
+    }
+
+
+def test_openai_adapter_normalizes_schema_constrained_propose_match_decision() -> None:
+    """Protects INV-L-006."""
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"propose_match","negotiation_id":"negotiation_1","actor_agent_id":"agent_2","reason":"","body":"","proposal":{"summary":"Match candidate to principal need","details":"Evidence and terms can be reviewed in event history."}}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        opener=opener,
+    )
+
+    assert decision.action == LlmDecisionAction.PROPOSE_MATCH
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "agent_2",
+        "proposal": {
+            "summary": "Match candidate to principal need",
+            "details": "Evidence and terms can be reviewed in event history.",
+        },
+    }
+
+
+def test_openai_adapter_normalizes_schema_constrained_accept_match_decision() -> None:
+    """Protects INV-L-006."""
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"accept_match","negotiation_id":"negotiation_1","actor_agent_id":"agent_1","reason":"","body":"","proposal":{"summary":"","details":""}}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        opener=opener,
+    )
+
+    assert decision.action == LlmDecisionAction.ACCEPT_MATCH
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "agent_1",
     }
 
 
