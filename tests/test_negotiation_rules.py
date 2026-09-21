@@ -49,31 +49,46 @@ def test_message_requires_open_negotiation() -> None:
         next_negotiation_state(NegotiationState.REQUESTED, ProtocolEventType.MESSAGE)
 
 
-def test_match_proposal_keeps_negotiation_open() -> None:
-    """Protects INV-N-005."""
-    assert next_negotiation_state(NegotiationState.OPEN, ProtocolEventType.MATCH_PROPOSED) == NegotiationState.OPEN
+def test_match_proposal_moves_negotiation_to_proposal_pending() -> None:
+    """Protects INV-N-005 and INV-N-009."""
+    assert (
+        next_negotiation_state(NegotiationState.OPEN, ProtocolEventType.MATCH_PROPOSED)
+        == NegotiationState.PROPOSAL_PENDING
+    )
 
 
 def test_match_acceptance_requires_prior_proposal() -> None:
-    """Protects INV-N-005."""
+    """Protects INV-N-005 and INV-N-009."""
     with pytest.raises(ProtocolViolation):
         next_negotiation_state(
             NegotiationState.OPEN,
             ProtocolEventType.MATCH_ACCEPTED,
-            has_match_proposal=False,
         )
 
 
 def test_match_acceptance_closes_as_matched_after_proposal() -> None:
-    """Protects INV-N-005."""
+    """Protects INV-N-005 and INV-N-009."""
     assert (
         next_negotiation_state(
-            NegotiationState.OPEN,
+            NegotiationState.PROPOSAL_PENDING,
             ProtocolEventType.MATCH_ACCEPTED,
-            has_match_proposal=True,
         )
         == NegotiationState.MATCHED
     )
+
+
+def test_message_reopens_proposal_pending_negotiation() -> None:
+    """Protects INV-N-009."""
+    assert (
+        next_negotiation_state(NegotiationState.PROPOSAL_PENDING, ProtocolEventType.MESSAGE)
+        == NegotiationState.OPEN
+    )
+
+
+def test_proposal_pending_rejects_additional_match_proposal() -> None:
+    """Protects INV-N-009."""
+    with pytest.raises(ProtocolViolation, match="pending proposal"):
+        next_negotiation_state(NegotiationState.PROPOSAL_PENDING, ProtocolEventType.MATCH_PROPOSED)
 
 
 def test_closed_negotiation_rejects_messages() -> None:

@@ -65,5 +65,6 @@ def test_storage_schema_uses_check_constraints_for_domain_enums() -> None:
     assert "principal" in check_sql
     assert "requested" in check_sql
     assert "open" in check_sql
+    assert "proposal_pending" in check_sql
     assert "matched" in check_sql
     assert "closed" in check_sql

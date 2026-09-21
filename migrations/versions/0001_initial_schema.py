@@ -66,7 +66,7 @@ def upgrade() -> None:
         sa.Column("subject", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint("state in ('requested', 'open', 'matched', 'closed')", name="negotiations_state_check"),
+        sa.CheckConstraint("state in ('requested', 'open', 'proposal_pending', 'matched', 'closed')", name="negotiations_state_check"),
         sa.ForeignKeyConstraint(["from_agent_id"], ["nodes.id"]),
         sa.ForeignKeyConstraint(["to_agent_id"], ["nodes.id"]),
         sa.PrimaryKeyConstraint("id"),

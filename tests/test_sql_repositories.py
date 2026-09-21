@@ -52,7 +52,7 @@ def test_sql_repositories_round_trip_core_graph_records() -> None:
         )
 
 
-def test_sql_negotiation_repository_counts_requested_and_open_as_active_load() -> None:
+def test_sql_negotiation_repository_counts_requested_open_and_proposal_pending_as_active_load() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     metadata.create_all(engine)
 
@@ -64,13 +64,14 @@ def test_sql_negotiation_repository_counts_requested_and_open_as_active_load() -
 
         negotiations.add(Negotiation("requested_1", "agent_1", "agent_2", NegotiationState.REQUESTED, {}))
         negotiations.add(Negotiation("open_1", "agent_1", "agent_2", NegotiationState.OPEN, {}))
+        negotiations.add(Negotiation("proposal_1", "agent_1", "agent_2", NegotiationState.PROPOSAL_PENDING, {}))
         negotiations.add(Negotiation("matched_1", "agent_1", "agent_2", NegotiationState.MATCHED, {}))
         negotiations.add(Negotiation("closed_1", "agent_1", "agent_2", NegotiationState.CLOSED, {}))
 
-        assert negotiations.count_open_for_agent("agent_1") == 2
+        assert negotiations.count_open_for_agent("agent_1") == 3
 
 
-def test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load() -> None:
+def test_sql_negotiation_repository_counts_inbound_requested_open_and_proposal_pending_as_active_load() -> None:
     """Protects INV-C-001."""
     engine = create_engine("sqlite+pysqlite:///:memory:")
     metadata.create_all(engine)
@@ -84,10 +85,11 @@ def test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_
         negotiations.add(Negotiation("outbound_open", "agent_1", "agent_2", NegotiationState.OPEN, {}))
         negotiations.add(Negotiation("inbound_requested", "agent_2", "agent_1", NegotiationState.REQUESTED, {}))
         negotiations.add(Negotiation("inbound_open", "agent_2", "agent_1", NegotiationState.OPEN, {}))
+        negotiations.add(Negotiation("inbound_proposal", "agent_2", "agent_1", NegotiationState.PROPOSAL_PENDING, {}))
         negotiations.add(Negotiation("inbound_matched", "agent_2", "agent_1", NegotiationState.MATCHED, {}))
         negotiations.add(Negotiation("inbound_closed", "agent_2", "agent_1", NegotiationState.CLOSED, {}))
 
-        assert negotiations.count_open_for_agent("agent_1") == 3
+        assert negotiations.count_open_for_agent("agent_1") == 4
 
 
 def test_sql_repositories_round_trip_negotiation_and_events_in_order() -> None:

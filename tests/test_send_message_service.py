@@ -88,6 +88,46 @@ def test_send_message_service_appends_message_event_for_open_negotiation() -> No
     ]
 
 
+def test_send_message_service_reopens_proposal_pending_negotiation() -> None:
+    """Protects INV-N-004, INV-N-009, and INV-H-001."""
+    events = InMemoryEvents()
+    negotiations = InMemoryNegotiations(
+        {
+            "negotiation_1": Negotiation(
+                id="negotiation_1",
+                from_agent_id="agent_1",
+                to_agent_id="agent_2",
+                state=NegotiationState.PROPOSAL_PENDING,
+                subject={},
+            )
+        }
+    )
+    service = NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=negotiations,
+        events=events,
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 4, tzinfo=timezone.utc),
+    )
+
+    service.send_message(
+        negotiation_id="negotiation_1",
+        actor_agent_id="agent_2",
+        body="Can you clarify the offer?",
+    )
+
+    assert negotiations.records["negotiation_1"].state == NegotiationState.OPEN
+    assert events.records == [
+        ProtocolEvent(
+            type=ProtocolEventType.MESSAGE,
+            actor_agent_id="agent_2",
+            negotiation_id="negotiation_1",
+            occurred_at=datetime(2026, 1, 4, tzinfo=timezone.utc),
+            payload={"body": "Can you clarify the offer?"},
+        )
+    ]
+
+
 def test_send_message_service_rejects_non_open_negotiation() -> None:
     """Protects INV-N-004."""
     events = InMemoryEvents()

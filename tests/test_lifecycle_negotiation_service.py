@@ -67,20 +67,21 @@ def make_service(
 
 
 def test_propose_match_service_appends_event_for_open_negotiation() -> None:
-    """Protects INV-N-005 and INV-H-001."""
+    """Protects INV-N-005, INV-N-009, and INV-H-001."""
     events = InMemoryEvents()
+    negotiations = InMemoryNegotiations(
+        {
+            "negotiation_1": Negotiation(
+                id="negotiation_1",
+                from_agent_id="agent_1",
+                to_agent_id="agent_2",
+                state=NegotiationState.OPEN,
+                subject={},
+            )
+        }
+    )
     service = make_service(
-        InMemoryNegotiations(
-            {
-                "negotiation_1": Negotiation(
-                    id="negotiation_1",
-                    from_agent_id="agent_1",
-                    to_agent_id="agent_2",
-                    state=NegotiationState.OPEN,
-                    subject={},
-                )
-            }
-        ),
+        negotiations,
         events,
     )
 
@@ -90,6 +91,7 @@ def test_propose_match_service_appends_event_for_open_negotiation() -> None:
         proposal={"candidate_id": "client_1", "principal_id": "principal_1"},
     )
 
+    assert negotiations.records["negotiation_1"].state == NegotiationState.PROPOSAL_PENDING
     assert events.records == [
         ProtocolEvent(
             type=ProtocolEventType.MATCH_PROPOSED,
@@ -102,7 +104,7 @@ def test_propose_match_service_appends_event_for_open_negotiation() -> None:
 
 
 def test_accept_match_service_requires_prior_proposal() -> None:
-    """Protects INV-N-005."""
+    """Protects INV-N-005 and INV-N-009."""
     service = make_service(
         InMemoryNegotiations(
             {
@@ -123,14 +125,14 @@ def test_accept_match_service_requires_prior_proposal() -> None:
 
 
 def test_accept_match_service_marks_negotiation_matched() -> None:
-    """Protects INV-N-005 and INV-H-001."""
+    """Protects INV-N-005, INV-N-009, and INV-H-001."""
     negotiations = InMemoryNegotiations(
         {
             "negotiation_1": Negotiation(
                 id="negotiation_1",
                 from_agent_id="agent_1",
                 to_agent_id="agent_2",
-                state=NegotiationState.OPEN,
+                state=NegotiationState.PROPOSAL_PENDING,
                 subject={},
             )
         }

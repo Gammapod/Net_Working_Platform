@@ -129,7 +129,13 @@ class SqlNegotiationRepository:
                     negotiations.c.from_agent_id == agent_id,
                     negotiations.c.to_agent_id == agent_id,
                 ),
-                negotiations.c.state.in_([NegotiationState.REQUESTED.value, NegotiationState.OPEN.value]),
+                negotiations.c.state.in_(
+                    [
+                        NegotiationState.REQUESTED.value,
+                        NegotiationState.OPEN.value,
+                        NegotiationState.PROPOSAL_PENDING.value,
+                    ]
+                ),
             )
         ).scalar_one()
 
@@ -141,7 +147,13 @@ class SqlNegotiationRepository:
                     negotiations.c.from_agent_id == agent_id,
                     negotiations.c.to_agent_id == agent_id,
                 ),
-                negotiations.c.state.in_([NegotiationState.REQUESTED.value, NegotiationState.OPEN.value]),
+                negotiations.c.state.in_(
+                    [
+                        NegotiationState.REQUESTED.value,
+                        NegotiationState.OPEN.value,
+                        NegotiationState.PROPOSAL_PENDING.value,
+                    ]
+                ),
             )
             .order_by(negotiations.c.created_at, negotiations.c.id)
         ).all()

@@ -103,29 +103,47 @@ Protected by:
 
 ### INV-N-004: Messages Require Open Negotiation
 
-Free-form negotiation messages are valid only while the negotiation is `open`.
+Free-form negotiation messages are valid only while the negotiation is `open` or `proposal_pending`. A message in `proposal_pending` returns the negotiation to `open`.
 
 Protected by:
 
 - `test_message_keeps_open_negotiation_open`
+- `test_message_reopens_proposal_pending_negotiation`
 - `test_message_requires_open_negotiation`
 - `test_send_message_service_appends_message_event_for_open_negotiation`
+- `test_send_message_service_reopens_proposal_pending_negotiation`
 - `test_send_message_service_rejects_non_open_negotiation`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
 
 ### INV-N-005: Match Acceptance Requires Match Proposal
 
-`match_accepted` is valid only after a `match_proposed` event in the same open negotiation.
+`match_accepted` is valid only while a negotiation is in `proposal_pending` after a match proposal.
 
 Protected by:
 
-- `test_match_proposal_keeps_negotiation_open`
+- `test_match_proposal_moves_negotiation_to_proposal_pending`
 - `test_match_acceptance_requires_prior_proposal`
 - `test_match_acceptance_closes_as_matched_after_proposal`
 - `test_propose_match_service_appends_event_for_open_negotiation`
 - `test_accept_match_service_requires_prior_proposal`
 - `test_accept_match_service_marks_negotiation_matched`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
+
+### INV-N-009: Pending Match Proposals Require Resolution Or Continued Negotiation
+
+`propose_match` moves an `open` negotiation to `proposal_pending`. While a proposal is pending, another proposal may not be made. Valid responses are `accept_match`, `close_negotiation`, or `send_message` when the actor has message budget remaining. A message returns the negotiation to `open`; acceptance moves it to `matched`; closure moves it to `closed`.
+
+Protected by:
+
+- `test_match_proposal_moves_negotiation_to_proposal_pending`
+- `test_message_reopens_proposal_pending_negotiation`
+- `test_proposal_pending_rejects_additional_match_proposal`
+- `test_propose_match_service_appends_event_for_open_negotiation`
+- `test_accept_match_service_requires_prior_proposal`
+- `test_accept_match_service_marks_negotiation_matched`
+- `test_send_message_service_reopens_proposal_pending_negotiation`
+- `test_get_agent_decision_context_includes_accept_match_after_match_proposal`
+- `test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used`
 
 ### INV-N-006: Matched And Closed Are Terminal
 
@@ -151,7 +169,7 @@ Protected by:
 
 ### INV-N-008: Free-Form Messages Are Bandwidth-Limited
 
-Free-form `send_message` actions are limited to three messages per actor per negotiation. Once an actor has sent three free-form messages in a negotiation, that actor may not send another message in that negotiation. Other protocol actions remain available according to negotiation state. If a match has been proposed and the actor has no message bandwidth remaining, the actor's valid next actions are limited to accepting the match or closing the negotiation.
+Free-form `send_message` actions are limited to three messages per actor per negotiation. Once an actor has sent three free-form messages in a negotiation, that actor may not send another message in that negotiation. Other protocol actions remain available according to negotiation state. If a match proposal is pending and the actor has no message bandwidth remaining, the actor's valid next actions are limited to accepting the match or closing the negotiation.
 
 Protected by:
 
@@ -317,15 +335,15 @@ Protected by:
 
 ### INV-C-001: Open Negotiation Limit Is Enforced
 
-An agent cannot exceed its configured maximum active negotiations. Active load includes `requested` and `open` negotiations where the agent is either `from_agent_id` or `to_agent_id`. `matched` and `closed` negotiations do not count as active load.
+An agent cannot exceed its configured maximum active negotiations. Active load includes `requested`, `open`, and `proposal_pending` negotiations where the agent is either `from_agent_id` or `to_agent_id`. `matched` and `closed` negotiations do not count as active load.
 
 Protected by:
 
 - `test_open_negotiation_capacity_allows_below_limit`
 - `test_open_negotiation_capacity_rejects_at_limit`
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
-- `test_sql_negotiation_repository_counts_requested_and_open_as_active_load`
-- `test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load`
+- `test_sql_negotiation_repository_counts_requested_open_and_proposal_pending_as_active_load`
+- `test_sql_negotiation_repository_counts_inbound_requested_open_and_proposal_pending_as_active_load`
 
 ### INV-C-002: Capacity Rejections Are Recorded
 
@@ -365,9 +383,11 @@ Protected by:
 | `test_reject_requested_negotiation_closes` | INV-N-003 |
 | `test_message_keeps_open_negotiation_open` | INV-N-004 |
 | `test_message_requires_open_negotiation` | INV-N-004 |
-| `test_match_proposal_keeps_negotiation_open` | INV-N-005 |
-| `test_match_acceptance_requires_prior_proposal` | INV-N-005 |
-| `test_match_acceptance_closes_as_matched_after_proposal` | INV-N-005 |
+| `test_match_proposal_moves_negotiation_to_proposal_pending` | INV-N-005, INV-N-009 |
+| `test_match_acceptance_requires_prior_proposal` | INV-N-005, INV-N-009 |
+| `test_match_acceptance_closes_as_matched_after_proposal` | INV-N-005, INV-N-009 |
+| `test_message_reopens_proposal_pending_negotiation` | INV-N-004, INV-N-009 |
+| `test_proposal_pending_rejects_additional_match_proposal` | INV-N-009 |
 | `test_closed_negotiation_rejects_messages` | INV-N-006 |
 | `test_matched_negotiation_rejects_close` | INV-N-006 |
 | `test_agent_node_uses_agent_type` | INV-E-001 |
@@ -382,6 +402,7 @@ Protected by:
 | `test_accept_negotiation_service_opens_requested_negotiation` | INV-N-003, INV-H-001 |
 | `test_reject_negotiation_service_closes_requested_negotiation` | INV-N-003, INV-H-001 |
 | `test_send_message_service_appends_message_event_for_open_negotiation` | INV-N-004, INV-H-001 |
+| `test_send_message_service_reopens_proposal_pending_negotiation` | INV-N-004, INV-N-009, INV-H-001 |
 | `test_send_message_service_rejects_non_open_negotiation` | INV-N-004 |
 | `test_send_message_service_rejects_message_after_actor_quota_used` | INV-N-008 |
 | `test_message_quota_is_per_actor_per_negotiation` | INV-N-008 |
@@ -390,9 +411,9 @@ Protected by:
 | `test_fact_field_is_disclosed_at_most_once_per_negotiation` | INV-F-003 |
 | `test_fact_disclosure_does_not_consume_message_budget` | INV-F-002, INV-N-008 |
 | `test_agent_decision_context_exposes_available_and_disclosed_facts` | INV-F-001, INV-H-004 |
-| `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-H-001 |
-| `test_accept_match_service_requires_prior_proposal` | INV-N-005 |
-| `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-H-001 |
+| `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-N-009, INV-H-001 |
+| `test_accept_match_service_requires_prior_proposal` | INV-N-005, INV-N-009 |
+| `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-N-009, INV-H-001 |
 | `test_close_negotiation_service_closes_open_negotiation` | INV-N-006, INV-H-001 |
 | `test_retrieve_negotiation_history_returns_structured_events` | INV-H-003 |
 | `test_storage_schema_declares_mvp_tables` | INV-E-001 |
@@ -400,8 +421,8 @@ Protected by:
 | `test_core_table_columns_match_repository_contracts` | INV-E-002 |
 | `test_storage_schema_uses_check_constraints_for_domain_enums` | INV-E-001, INV-E-002, INV-N-002, INV-N-006 |
 | `test_sql_repositories_round_trip_core_graph_records` | INV-E-001, INV-E-003 |
-| `test_sql_negotiation_repository_counts_requested_and_open_as_active_load` | INV-C-001 |
-| `test_sql_negotiation_repository_counts_inbound_requested_and_open_as_active_load` | INV-C-001 |
+| `test_sql_negotiation_repository_counts_requested_open_and_proposal_pending_as_active_load` | INV-C-001 |
+| `test_sql_negotiation_repository_counts_inbound_requested_open_and_proposal_pending_as_active_load` | INV-C-001 |
 | `test_sql_repositories_round_trip_negotiation_and_events_in_order` | INV-N-001, INV-H-003 |
 | `test_sql_backed_negotiation_service_runs_full_lifecycle` | INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-001, INV-H-003 |
 | `test_cli_runs_full_negotiation_lifecycle` | INV-CLI-001, INV-CLI-002, INV-G-001, INV-N-001, INV-N-002, INV-N-003, INV-N-004, INV-N-005, INV-H-003 |
@@ -412,9 +433,9 @@ Protected by:
 | `test_non_participant_cannot_close_negotiation` | INV-N-007 |
 | `test_get_agent_decision_context_returns_structured_read_only_context` | INV-H-004 |
 | `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
-| `test_get_agent_decision_context_includes_accept_match_after_match_proposal` | INV-H-004 |
 | `test_get_agent_decision_context_excludes_send_message_when_quota_used` | INV-H-004, INV-N-008 |
-| `test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used` | INV-H-004, INV-N-005, INV-N-008 |
+| `test_get_agent_decision_context_includes_accept_match_after_match_proposal` | INV-H-004, INV-N-009 |
+| `test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used` | INV-H-004, INV-N-005, INV-N-008, INV-N-009 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
 | `test_build_graph_snapshot_returns_viewer_ready_nodes_and_edges` | INV-H-005 |
 | `test_sql_graph_snapshot_reader_reads_current_graph_state` | INV-H-005 |

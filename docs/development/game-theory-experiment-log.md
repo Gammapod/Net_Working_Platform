@@ -356,3 +356,69 @@ Follow-ups:
 
 - Consider preventing additional `propose_match` actions once a proposal is already pending, or require terminal response actions when a proposal is pending and the scheduled actor is the non-proposer.
 - Consider whether disclosure should be intentionally selective, for example by adding a per-decision maximum or requiring prompt guidance to disclose only facts relevant to the current action rationale.
+
+## 2026-09-21: Pairwise Strategy Matrix With Proposal-Pending State
+
+Model or decision source: OpenAI `gpt-4o-mini` through the dev-only OpenAI Responses adapter.
+
+Scenario/matrix: 3 client strategies by 3 principal strategies from `docs/development/agent-strategy-catalog.md`.
+
+Protocol/harness state:
+
+- Message quota active: 3 `send_message` events per actor per negotiation.
+- `defer` excluded from normal negotiation valid actions.
+- Provider output constrained by turn-specific schema.
+- Attached fact disclosure active through `disclose_fact_fields`.
+- New `proposal_pending` negotiation state active: `propose_match` moves `open` to `proposal_pending`; pending proposals may be accepted, closed, or reopened to `open` by `send_message`; additional proposals are unavailable while pending.
+
+Result summary:
+
+| Outcome | Count |
+| --- | ---: |
+| Matched | 7 |
+| Closed | 2 |
+| Open | 0 |
+| Proposal pending | 0 |
+| Invalid attempts | 0 |
+| Skipped no-action turns | 7 |
+
+Aggregate actions/events:
+
+- `send_message`: 46
+- `propose_match`: 10
+- `accept_match`: 7
+- `close_negotiation`: 2
+- `fact_disclosed` events: 100
+- `defer`: 0
+
+Pairwise outcomes:
+
+| Client Strategy | Principal Strategy | Final State | Facts | Messages | Proposals | Invalid Attempts |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `CLIENT-FAST-ANY` | `PRINCIPAL-CREDENTIAL-MAX` | matched | 12 | 6 | 1 | 0 |
+| `CLIENT-FAST-ANY` | `PRINCIPAL-FAST-MINIMUMS` | matched | 8 | 1 | 1 | 0 |
+| `CLIENT-FAST-ANY` | `PRINCIPAL-EVIDENCE-ADJACENT` | matched | 8 | 6 | 1 | 0 |
+| `CLIENT-INCOME-FIELD` | `PRINCIPAL-CREDENTIAL-MAX` | matched | 12 | 6 | 1 | 0 |
+| `CLIENT-INCOME-FIELD` | `PRINCIPAL-FAST-MINIMUMS` | closed | 12 | 6 | 0 | 0 |
+| `CLIENT-INCOME-FIELD` | `PRINCIPAL-EVIDENCE-ADJACENT` | closed | 12 | 6 | 1 | 0 |
+| `CLIENT-ADJACENT-PIVOT` | `PRINCIPAL-CREDENTIAL-MAX` | matched | 12 | 6 | 1 | 0 |
+| `CLIENT-ADJACENT-PIVOT` | `PRINCIPAL-FAST-MINIMUMS` | matched | 12 | 3 | 3 | 0 |
+| `CLIENT-ADJACENT-PIVOT` | `PRINCIPAL-EVIDENCE-ADJACENT` | matched | 12 | 6 | 1 | 0 |
+
+Observed result:
+
+- The previously open `CLIENT-FAST-ANY` vs `PRINCIPAL-FAST-MINIMUMS` pairing now matched.
+- All 9 pairings reached terminal states with 0 invalid attempts.
+- Repeated proposal churn was reduced from 15 proposals in the prior attached-fact run to 10 proposals.
+- The result matches the earlier terminality target from turn-specific schemas while preserving structured attached fact disclosure.
+- One pairing still produced 3 proposals because messages can explicitly reopen a pending proposal to `open`, allowing a revised proposal later.
+
+Decision preserved:
+
+- Keep `proposal_pending` as a first-class negotiation state.
+- Keep `send_message` as the mechanism for returning from a pending proposal to open negotiation.
+
+Follow-ups:
+
+- If proposal churn remains undesirable, consider tracking proposal author or proposal revision count rather than forbidding all later proposals after clarification.
+- Consider adding explicit `reject_match` separately from `close_negotiation` only if later UX needs to distinguish rejection from broader negotiation closure.

@@ -31,7 +31,8 @@ class InMemoryNegotiations:
                 negotiation
                 for negotiation in self.records
                 if agent_id in {negotiation.from_agent_id, negotiation.to_agent_id}
-                and negotiation.state in {NegotiationState.REQUESTED, NegotiationState.OPEN}
+                and negotiation.state
+                in {NegotiationState.REQUESTED, NegotiationState.OPEN, NegotiationState.PROPOSAL_PENDING}
             ]
         )
 
@@ -40,7 +41,8 @@ class InMemoryNegotiations:
             negotiation
             for negotiation in self.records
             if agent_id in {negotiation.from_agent_id, negotiation.to_agent_id}
-            and negotiation.state in {NegotiationState.REQUESTED, NegotiationState.OPEN}
+            and negotiation.state
+            in {NegotiationState.REQUESTED, NegotiationState.OPEN, NegotiationState.PROPOSAL_PENDING}
         ]
 
     def add(self, negotiation: Negotiation) -> None:
@@ -209,9 +211,9 @@ def test_get_agent_decision_context_includes_capacity_when_limit_supplied() -> N
 
 
 def test_get_agent_decision_context_includes_accept_match_after_match_proposal() -> None:
-    """Protects INV-H-004."""
+    """Protects INV-H-004 and INV-N-009."""
     negotiations = InMemoryNegotiations(
-        [Negotiation("open_with_proposal", "agent_1", "agent_2", NegotiationState.OPEN, {})]
+        [Negotiation("open_with_proposal", "agent_1", "agent_2", NegotiationState.PROPOSAL_PENDING, {})]
     )
     events = InMemoryEvents(
         [
@@ -237,7 +239,6 @@ def test_get_agent_decision_context_includes_accept_match_after_match_proposal()
     assert context["valid_next_actions_by_negotiation"] == {
         "open_with_proposal": [
             "send_message",
-            "propose_match",
             "accept_match",
             "close_negotiation",
         ]
@@ -284,9 +285,9 @@ def test_get_agent_decision_context_excludes_send_message_when_quota_used() -> N
 
 
 def test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used() -> None:
-    """Protects INV-H-004, INV-N-005, and INV-N-008."""
+    """Protects INV-H-004, INV-N-005, INV-N-008, and INV-N-009."""
     negotiations = InMemoryNegotiations(
-        [Negotiation("open_out", "agent_2", "agent_3", NegotiationState.OPEN, {})]
+        [Negotiation("open_out", "agent_2", "agent_3", NegotiationState.PROPOSAL_PENDING, {})]
     )
     events = InMemoryEvents(
         [

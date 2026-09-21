@@ -122,6 +122,8 @@ For live provider runs, the pairwise runner derives a turn-specific structured-o
 
 Pairwise scenarios now include initial represented-party fact profiles with salary range, credentials, benefits, employment type, disposition, career path, and ranked priorities. Agents can attach currently available fields through `disclose_fact_fields` on a substantive protocol action. Attached disclosures append structured `fact_disclosed` events before the substantive action and do not consume free-form message budget; fact disclosure is not a standalone protocol action.
 
+Pending match proposals are represented as `proposal_pending` negotiation state. A proposal must be resolved by acceptance, closure, or a message that returns the negotiation to `open`; additional proposals are unavailable while a proposal is pending.
+
 Example:
 
 ```powershell

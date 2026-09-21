@@ -94,7 +94,7 @@ def test_scaled_experiment_runner_observes_20_client_10_principal_market_for_10_
     assert summary["metrics"]["invalid_attempts"] == 0
     assert summary["metrics"]["focus_mismatch_attempts"] == 0
     assert summary["metrics"]["initial_negotiation_states"] == {"open": 40}
-    assert summary["metrics"]["final_negotiation_states"] == {"open": 40}
+    assert summary["metrics"]["final_negotiation_states"] == {"open": 30, "proposal_pending": 10}
     assert summary["metrics"]["executed_decisions_by_action"] == {
         "defer": 150,
         "propose_match": 10,
@@ -110,7 +110,7 @@ def test_scaled_experiment_runner_observes_20_client_10_principal_market_for_10_
     }
     assert all(record["validation"]["valid"] for record in transcript)
     assert all(record["error"] is None for record in transcript)
-    assert 'client_agent_1 ==>|"open"| principal_agent_2' in final_graph
+    assert 'client_agent_1 ==>|"proposal_pending"| principal_agent_2' in final_graph
     assert "Client Agent 20" in final_graph
     assert "Principal Agent 10" in final_graph
 

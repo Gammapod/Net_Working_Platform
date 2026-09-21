@@ -25,6 +25,7 @@ class RepresentationState(StrEnum):
 class NegotiationState(StrEnum):
     REQUESTED = "requested"
     OPEN = "open"
+    PROPOSAL_PENDING = "proposal_pending"
     MATCHED = "matched"
     CLOSED = "closed"
 
@@ -128,7 +129,7 @@ def can_open_negotiation(open_negotiation_count: int, max_open_negotiations: int
 
 def can_append_message(state: NegotiationState) -> bool:
     """INV-N-004: Messages require an open negotiation."""
-    return state == NegotiationState.OPEN
+    return state in {NegotiationState.OPEN, NegotiationState.PROPOSAL_PENDING}
 
 
 def ensure_negotiation_actor_is_participant(negotiation: Negotiation, actor_agent_id: str) -> None:
@@ -167,13 +168,24 @@ def next_negotiation_state(
         if event_type == ProtocolEventType.FACT_DISCLOSED:
             return NegotiationState.OPEN
         if event_type == ProtocolEventType.MATCH_PROPOSED:
-            return NegotiationState.OPEN
+            return NegotiationState.PROPOSAL_PENDING
         if event_type == ProtocolEventType.MATCH_ACCEPTED:
-            if not has_match_proposal:
-                raise ProtocolViolation("match_acceptance requires prior match_proposed")
-            return NegotiationState.MATCHED
+            raise ProtocolViolation("match_acceptance requires pending match proposal")
         if event_type == ProtocolEventType.CLOSE_NEGOTIATION:
             return NegotiationState.CLOSED
         raise ProtocolViolation(f"{event_type.value} is not valid for open negotiation")
+
+    if current_state == NegotiationState.PROPOSAL_PENDING:
+        if event_type == ProtocolEventType.FACT_DISCLOSED:
+            return NegotiationState.PROPOSAL_PENDING
+        if event_type == ProtocolEventType.MESSAGE:
+            return NegotiationState.OPEN
+        if event_type == ProtocolEventType.MATCH_ACCEPTED:
+            return NegotiationState.MATCHED
+        if event_type == ProtocolEventType.CLOSE_NEGOTIATION:
+            return NegotiationState.CLOSED
+        if event_type == ProtocolEventType.MATCH_PROPOSED:
+            raise ProtocolViolation("pending proposal must be resolved before another proposal")
+        raise ProtocolViolation(f"{event_type.value} is not valid for proposal pending negotiation")
 
     raise ProtocolViolation(f"unknown negotiation state: {current_state}")

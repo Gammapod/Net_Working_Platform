@@ -72,7 +72,7 @@ negotiations = Table(
     Column("subject", json_payload, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint("state in ('requested', 'open', 'matched', 'closed')", name="negotiations_state_check"),
+    CheckConstraint("state in ('requested', 'open', 'proposal_pending', 'matched', 'closed')", name="negotiations_state_check"),
 )
 Index("negotiations_from_agent_state_idx", negotiations.c.from_agent_id, negotiations.c.state)
 Index("negotiations_to_agent_state_idx", negotiations.c.to_agent_id, negotiations.c.state)
