@@ -92,6 +92,7 @@ protocol_events = Table(
         "'open_negotiation_request', "
         "'open_negotiation_response', "
         "'message', "
+        "'fact_disclosed', "
         "'match_proposed', "
         "'match_accepted', "
         "'close_negotiation'"

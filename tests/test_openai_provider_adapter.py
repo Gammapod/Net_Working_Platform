@@ -180,6 +180,39 @@ def test_openai_adapter_normalizes_schema_constrained_message_decision() -> None
     }
 
 
+def test_openai_adapter_normalizes_schema_constrained_attached_fact_disclosures() -> None:
+    """Protects INV-L-006."""
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"send_message","negotiation_id":"negotiation_1","actor_agent_id":"client_agent","reason":"","body":"Sharing compensation context.","disclose_fact_fields":["salary_range","career_path"],"proposal":{"summary":"","details":""}}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        opener=opener,
+    )
+
+    assert decision.action == LlmDecisionAction.SEND_MESSAGE
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "client_agent",
+        "body": "Sharing compensation context.",
+        "disclose_fact_fields": ["salary_range", "career_path"],
+    }
+
+
 def test_openai_adapter_normalizes_schema_constrained_reject_decision() -> None:
     """Protects INV-L-006."""
     opener = FakeOpener(

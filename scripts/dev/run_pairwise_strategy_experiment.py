@@ -154,6 +154,7 @@ def _execute_turn(
         valid_actions=valid_actions,
         actor_agent_id=scheduled_actor_agent_id,
         negotiation_id=scenario.negotiation_id,
+        available_fact_fields=_available_fact_fields_from_context(context_package, scenario.negotiation_id),
     )
     raw_decision: dict[str, Any] | None = None
     provider_error = None
@@ -182,6 +183,13 @@ def _execute_turn(
             expected_negotiation_id=scenario.negotiation_id,
             validation=validation,
         )
+    if validation["valid"]:
+        validation = _validate_attached_fact_fields_available(
+            raw_decision=raw_decision or {},
+            context_package=context_package,
+            expected_negotiation_id=scenario.negotiation_id,
+            validation=validation,
+        )
 
     execution_result = None
     error = None
@@ -194,6 +202,7 @@ def _execute_turn(
                 before_events = _event_count(db_url, scenario.negotiation_id)
                 execution_result = _execute_decision(
                     db_url=db_url,
+                    scenario=scenario,
                     raw_decision=raw_decision or {},
                     occurred_at=datetime(2026, 1, 8, 12, 10, tzinfo=timezone.utc) + timedelta(minutes=turn - 1),
                 )
@@ -235,6 +244,7 @@ def _context_package(
             connection,
             new_id=lambda: "unused",
             now=lambda: datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc),
+            represented_party_profiles_by_agent=scenario.represented_party_profiles_by_agent,
         )
         decision_context = service.get_agent_decision_context(
             agent_id=scheduled_actor_agent_id,
@@ -280,6 +290,23 @@ def _valid_actions_from_context(context_package: dict[str, object], negotiation_
     if not isinstance(valid_actions, list):
         return []
     return [str(action) for action in valid_actions]
+
+
+def _available_fact_fields_from_context(context_package: dict[str, object], negotiation_id: str) -> list[str]:
+    decision_context = context_package.get("decision_context", {})
+    if not isinstance(decision_context, dict):
+        return []
+    available_by_negotiation = decision_context.get("available_fact_disclosures_by_negotiation", {})
+    if not isinstance(available_by_negotiation, dict):
+        return []
+    records = available_by_negotiation.get(negotiation_id, [])
+    if not isinstance(records, list):
+        return []
+    fields = []
+    for record in records:
+        if isinstance(record, dict) and isinstance(record.get("field"), str):
+            fields.append(record["field"])
+    return sorted(set(fields))
 
 
 def _reset_sqlite_database(db_url: str) -> None:
@@ -379,7 +406,44 @@ def _validate_action_available(
     return validation
 
 
-def _execute_decision(*, db_url: str, raw_decision: dict[str, Any], occurred_at: datetime) -> dict[str, object]:
+def _validate_attached_fact_fields_available(
+    *,
+    raw_decision: dict[str, Any],
+    context_package: dict[str, object],
+    expected_negotiation_id: str,
+    validation: dict[str, object],
+) -> dict[str, object]:
+    fields = raw_decision.get("disclose_fact_fields", [])
+    if fields in (None, []):
+        return validation
+    if not isinstance(fields, list) or any(not isinstance(field, str) for field in fields):
+        return validation
+    available_fields = _available_fact_fields_from_context(context_package, expected_negotiation_id)
+    unavailable_fields = sorted(set(fields) - set(available_fields))
+    duplicate_fields = sorted({field for field in fields if fields.count(field) > 1})
+    if unavailable_fields or duplicate_fields:
+        return {
+            "valid": False,
+            "action": validation.get("action"),
+            "error": {
+                "type": "FactDisclosureUnavailable",
+                "message": "attached fact disclosures must be currently available for the negotiation",
+                "expected_negotiation_id": expected_negotiation_id,
+                "available_fact_fields": available_fields,
+                "unavailable_fact_fields": unavailable_fields,
+                "duplicate_fact_fields": duplicate_fields,
+            },
+        }
+    return validation
+
+
+def _execute_decision(
+    *,
+    db_url: str,
+    scenario: PairwiseStrategyScenario,
+    raw_decision: dict[str, Any],
+    occurred_at: datetime,
+) -> dict[str, object]:
     decision = parse_llm_decision(raw_decision)
     engine = create_engine(db_url)
     with engine.begin() as connection:
@@ -387,6 +451,7 @@ def _execute_decision(*, db_url: str, raw_decision: dict[str, Any], occurred_at:
             connection,
             new_id=lambda: "unused",
             now=lambda: occurred_at,
+            represented_party_profiles_by_agent=scenario.represented_party_profiles_by_agent,
         )
         result = execute_llm_decision(decision, service)
     return _jsonable(result)

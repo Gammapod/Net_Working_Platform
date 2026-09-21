@@ -120,6 +120,8 @@ The core protocol limits free-form messages to three per actor per negotiation. 
 
 For live provider runs, the pairwise runner derives a turn-specific structured-output schema from the scheduled actor, focus negotiation, and current valid next actions. This prevents the model from emitting unavailable actions such as `send_message` after quota exhaustion.
 
+Pairwise scenarios now include initial represented-party fact profiles with salary range, credentials, benefits, employment type, disposition, career path, and ranked priorities. Agents can attach currently available fields through `disclose_fact_fields` on a substantive protocol action. Attached disclosures append structured `fact_disclosed` events before the substantive action and do not consume free-form message budget; fact disclosure is not a standalone protocol action.
+
 Example:
 
 ```powershell

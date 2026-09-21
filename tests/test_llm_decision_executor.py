@@ -81,6 +81,24 @@ class RecordingNegotiationService:
         )
         return {"state": "closed"}
 
+    def disclose_facts(
+        self,
+        *,
+        negotiation_id: str,
+        actor_agent_id: str,
+        fields: list[str],
+    ) -> None:
+        self.calls.append(
+            (
+                "disclose_facts",
+                {
+                    "negotiation_id": negotiation_id,
+                    "actor_agent_id": actor_agent_id,
+                    "fields": fields,
+                },
+            )
+        )
+
 
 def test_execute_llm_accept_negotiation_decision_uses_service() -> None:
     """Protects INV-L-004, INV-N-003, and INV-H-001."""
@@ -209,6 +227,42 @@ def test_execute_llm_close_negotiation_decision_uses_service() -> None:
         )
     ]
     assert result == {"executed": True, "action": "close_negotiation", "result": {"state": "closed"}}
+
+
+def test_execute_llm_decision_discloses_attached_facts_before_protocol_action() -> None:
+    """Protects INV-L-004 and INV-F-001."""
+    service = RecordingNegotiationService()
+    decision = parse_llm_decision(
+        {
+            "action": "send_message",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "client_agent",
+            "body": "I am sharing salary and career facts because they frame fit.",
+            "disclose_fact_fields": ["salary_range", "career_path"],
+        }
+    )
+
+    result = execute_llm_decision(decision, service)
+
+    assert service.calls == [
+        (
+            "disclose_facts",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "client_agent",
+                "fields": ["salary_range", "career_path"],
+            },
+        ),
+        (
+            "send_message",
+            {
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "client_agent",
+                "body": "I am sharing salary and career facts because they frame fit.",
+            },
+        )
+    ]
+    assert result == {"executed": True, "action": "send_message", "result": None}
 
 
 def test_execute_llm_propose_match_decision_uses_service() -> None:

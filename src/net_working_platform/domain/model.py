@@ -38,9 +38,15 @@ class ProtocolEventType(StrEnum):
     OPEN_NEGOTIATION_REQUEST = "open_negotiation_request"
     OPEN_NEGOTIATION_RESPONSE = "open_negotiation_response"
     MESSAGE = "message"
+    FACT_DISCLOSED = "fact_disclosed"
     MATCH_PROPOSED = "match_proposed"
     MATCH_ACCEPTED = "match_accepted"
     CLOSE_NEGOTIATION = "close_negotiation"
+
+
+class FactKind(StrEnum):
+    CONSTRAINT = "constraint"
+    EVIDENCE = "evidence"
 
 
 @dataclass(frozen=True)
@@ -82,6 +88,21 @@ class ProtocolEvent:
     negotiation_id: str | None
     occurred_at: datetime
     payload: dict[str, object]
+
+
+@dataclass(frozen=True)
+class RepresentedPartyFact:
+    kind: FactKind
+    label: str
+    value: object
+
+
+@dataclass(frozen=True)
+class RepresentedPartyProfile:
+    represented_party_id: str
+    represented_party_type: str
+    facts: dict[str, RepresentedPartyFact]
+    priorities: tuple[dict[str, object], ...] = ()
 
 
 class ProtocolViolation(ValueError):
@@ -142,6 +163,8 @@ def next_negotiation_state(
 
     if current_state == NegotiationState.OPEN:
         if event_type == ProtocolEventType.MESSAGE:
+            return NegotiationState.OPEN
+        if event_type == ProtocolEventType.FACT_DISCLOSED:
             return NegotiationState.OPEN
         if event_type == ProtocolEventType.MATCH_PROPOSED:
             return NegotiationState.OPEN

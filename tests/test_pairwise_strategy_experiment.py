@@ -50,6 +50,8 @@ def test_pairwise_strategy_scenario_creates_open_negotiation_with_facts(tmp_path
     assert scenario.principal_strategy_id == "PRINCIPAL-FAST-MINIMUMS"
     assert scenario.client_facts["target_field"] == "software engineering"
     assert scenario.principal_facts["role"] == "backend engineer"
+    assert scenario.represented_party_profiles_by_agent["client_agent"][0].facts["salary_range"].kind == "constraint"
+    assert scenario.represented_party_profiles_by_agent["principal_agent"][0].facts["employment_type"].value == ["salaried W-2"]
 
 
 def test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadata(tmp_path: Path) -> None:

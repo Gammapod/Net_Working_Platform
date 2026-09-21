@@ -30,6 +30,7 @@ An agent representing a client connects to an agent representing a principal. Th
 - Separate agent-agent and representation edges.
 - First-class negotiation records.
 - Append-only protocol event history.
+- Structured represented-party fact disclosure for negotiation experiments.
 - Human-first CLI tools before agent runtime tools.
 - SQLAlchemy Core repository layer with Alembic migrations.
 - Human-first CLI commands that call the same application services future agent tools should call.
@@ -135,6 +136,7 @@ Implemented and tested:
 - Read-only agent decision context for constrained LLM experiments.
 - Explicit capacity fields in agent decision context.
 - Per-actor free-form message quota fields in agent decision context.
+- Available and disclosed represented-party facts in agent decision context for pairwise strategy experiments.
 - Full protocol and valid-next-action fields in agent decision context.
 - LLM decision contract validation.
 - Validated LLM decision execution for negotiation responses, messages, match proposals, match acceptance, close, and defer.
@@ -167,6 +169,7 @@ Still missing or intentionally deferred for MVP completion:
 - Postgres-backed integration tests against a real Postgres instance.
 - DB-level append-only enforcement for `protocol_events`.
 - Agent tool wrappers around the application services.
+- Persistent represented-party fact profile storage beyond dev experiment scenarios.
 - Real LLM agent loop.
 - Configurable message quota policy.
 - Evidence/preflight protocol.

@@ -177,6 +177,35 @@ Protected by:
 - `test_close_negotiation_service_closes_open_negotiation`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
 
+## Represented-Party Fact Invariants
+
+### INV-F-001: Represented-Party Facts Are Disclosed Structurally
+
+Agents may attach zero or more known represented-party fact fields to a substantive negotiation action. Fact disclosure is not a standalone protocol action. Each disclosed fact must reference an existing currently available represented-party field for the actor, preserve the field kind and value, and append a `fact_disclosed` event before the attached substantive action event.
+
+Protected by:
+
+- `test_disclose_facts_appends_structured_fact_events`
+- `test_disclose_fact_rejects_unknown_or_unrepresented_field`
+- `test_agent_decision_context_exposes_available_and_disclosed_facts`
+- `test_execute_llm_decision_discloses_attached_facts_before_protocol_action`
+
+### INV-F-002: Fact Disclosure Does Not Consume Message Budget
+
+Structured fact disclosure is not a free-form message and must not count against the actor's per-negotiation `send_message` quota, even when attached to a `send_message` action.
+
+Protected by:
+
+- `test_fact_disclosure_does_not_consume_message_budget`
+
+### INV-F-003: Fact Fields Are Disclosed At Most Once Per Negotiation
+
+A represented-party fact field may be disclosed at most once per negotiation by the representing agent.
+
+Protected by:
+
+- `test_fact_field_is_disclosed_at_most_once_per_negotiation`
+
 ### INV-H-002: Event History Is Append-Only
 
 Existing events must not be updated or deleted through application services.
@@ -356,6 +385,11 @@ Protected by:
 | `test_send_message_service_rejects_non_open_negotiation` | INV-N-004 |
 | `test_send_message_service_rejects_message_after_actor_quota_used` | INV-N-008 |
 | `test_message_quota_is_per_actor_per_negotiation` | INV-N-008 |
+| `test_disclose_facts_appends_structured_fact_events` | INV-F-001 |
+| `test_disclose_fact_rejects_unknown_or_unrepresented_field` | INV-F-001 |
+| `test_fact_field_is_disclosed_at_most_once_per_negotiation` | INV-F-003 |
+| `test_fact_disclosure_does_not_consume_message_budget` | INV-F-002, INV-N-008 |
+| `test_agent_decision_context_exposes_available_and_disclosed_facts` | INV-F-001, INV-H-004 |
 | `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-H-001 |
 | `test_accept_match_service_requires_prior_proposal` | INV-N-005 |
 | `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-H-001 |
@@ -403,12 +437,15 @@ Protected by:
 | `test_parse_llm_decision_requires_action_specific_fields` | INV-L-002 |
 | `test_parse_llm_decision_rejects_extra_fields` | INV-L-002 |
 | `test_parse_llm_defer_decision` | INV-L-003 |
+| `test_parse_llm_decision_accepts_attached_fact_disclosure_fields` | INV-L-001, INV-L-002 |
+| `test_parse_llm_decision_rejects_invalid_attached_fact_disclosure_fields` | INV-L-002 |
 | `test_execute_llm_accept_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
 | `test_execute_llm_reject_negotiation_decision_uses_service` | INV-L-004, INV-N-003, INV-H-001 |
 | `test_execute_llm_send_message_decision_uses_service` | INV-L-004, INV-N-004, INV-H-001 |
 | `test_execute_llm_propose_match_decision_uses_service` | INV-L-004, INV-N-005, INV-H-001 |
 | `test_execute_llm_accept_match_decision_uses_service` | INV-L-004, INV-N-005, INV-H-001 |
 | `test_execute_llm_close_negotiation_decision_uses_service` | INV-L-004, INV-N-006, INV-H-001 |
+| `test_execute_llm_decision_discloses_attached_facts_before_protocol_action` | INV-L-004, INV-F-001 |
 | `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
 | `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
 | `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |

@@ -42,6 +42,14 @@ class LlmNegotiationService(Protocol):
 
     def send_message(self, *, negotiation_id: str, actor_agent_id: str, body: str) -> object: ...
 
+    def disclose_facts(
+        self,
+        *,
+        negotiation_id: str,
+        actor_agent_id: str,
+        fields: list[str],
+    ) -> object: ...
+
     def propose_match(self, *, negotiation_id: str, actor_agent_id: str, proposal: dict[str, object]) -> object: ...
 
     def accept_match(self, *, negotiation_id: str, actor_agent_id: str) -> object: ...
@@ -51,6 +59,7 @@ class LlmNegotiationService(Protocol):
 
 _STRING_FIELDS = {"action", "negotiation_id", "actor_agent_id", "body", "reason"}
 _OBJECT_FIELDS = {"proposal"}
+_LIST_FIELDS = {"disclose_fact_fields"}
 
 _ACTION_FIELDS: dict[LlmDecisionAction, tuple[set[str], set[str]]] = {
     LlmDecisionAction.ACCEPT_NEGOTIATION: (
@@ -63,19 +72,19 @@ _ACTION_FIELDS: dict[LlmDecisionAction, tuple[set[str], set[str]]] = {
     ),
     LlmDecisionAction.SEND_MESSAGE: (
         {"action", "negotiation_id", "actor_agent_id", "body"},
-        set(),
+        {"disclose_fact_fields"},
     ),
     LlmDecisionAction.PROPOSE_MATCH: (
         {"action", "negotiation_id", "actor_agent_id", "proposal"},
-        set(),
+        {"disclose_fact_fields"},
     ),
     LlmDecisionAction.ACCEPT_MATCH: (
         {"action", "negotiation_id", "actor_agent_id"},
-        set(),
+        {"disclose_fact_fields"},
     ),
     LlmDecisionAction.CLOSE_NEGOTIATION: (
         {"action", "negotiation_id", "actor_agent_id", "reason"},
-        set(),
+        {"disclose_fact_fields"},
     ),
     LlmDecisionAction.DEFER: (
         {"action", "actor_agent_id", "reason"},
@@ -118,6 +127,7 @@ LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
                 "negotiation_id": {"type": "string"},
                 "actor_agent_id": {"type": "string"},
                 "body": {"type": "string"},
+                "disclose_fact_fields": {"type": "array", "items": {"type": "string"}},
             },
         },
         {
@@ -129,6 +139,7 @@ LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
                 "negotiation_id": {"type": "string"},
                 "actor_agent_id": {"type": "string"},
                 "proposal": {"type": "object"},
+                "disclose_fact_fields": {"type": "array", "items": {"type": "string"}},
             },
         },
         {
@@ -139,6 +150,7 @@ LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
                 "action": {"const": "accept_match"},
                 "negotiation_id": {"type": "string"},
                 "actor_agent_id": {"type": "string"},
+                "disclose_fact_fields": {"type": "array", "items": {"type": "string"}},
             },
         },
         {
@@ -150,6 +162,7 @@ LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
                 "negotiation_id": {"type": "string"},
                 "actor_agent_id": {"type": "string"},
                 "reason": {"type": "string"},
+                "disclose_fact_fields": {"type": "array", "items": {"type": "string"}},
             },
         },
         {
@@ -171,6 +184,7 @@ def build_turn_decision_json_schema(
     valid_actions: list[str],
     actor_agent_id: str,
     negotiation_id: str,
+    available_fact_fields: list[str] | None = None,
 ) -> dict[str, object]:
     """Build a turn-specific JSON Schema constrained to context-valid actions.
 
@@ -182,13 +196,25 @@ def build_turn_decision_json_schema(
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body", "proposal"],
+        "required": [
+            "action",
+            "actor_agent_id",
+            "negotiation_id",
+            "reason",
+            "body",
+            "disclose_fact_fields",
+            "proposal",
+        ],
         "properties": {
             "action": {"type": "string", "enum": valid_actions},
             "actor_agent_id": {"type": "string", "enum": [actor_agent_id]},
             "negotiation_id": {"type": "string", "enum": [negotiation_id]},
             "reason": {"type": "string"},
             "body": {"type": "string"},
+            "disclose_fact_fields": {
+                "type": "array",
+                "items": {"type": "string", "enum": available_fact_fields or []},
+            },
             "proposal": {
                 "type": "object",
                 "additionalProperties": False,
@@ -300,6 +326,11 @@ def _validate_field_type(field: str, value: object) -> None:
         raise LlmDecisionValidationError(f"field {field} must be string")
     if field in _OBJECT_FIELDS and not isinstance(value, dict):
         raise LlmDecisionValidationError(f"field {field} must be object")
+    if field in _LIST_FIELDS:
+        if not isinstance(value, list):
+            raise LlmDecisionValidationError(f"field {field} must be array")
+        if any(not isinstance(item, str) for item in value):
+            raise LlmDecisionValidationError(f"field {field} must contain strings")
 
 
 def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) -> dict[str, object]:
@@ -325,6 +356,7 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
         return {"executed": True, "action": decision.action.value, "result": result}
 
     if decision.action == LlmDecisionAction.SEND_MESSAGE:
+        _disclose_attached_facts(decision, service)
         result = service.send_message(
             negotiation_id=_required_string(decision, "negotiation_id"),
             actor_agent_id=_required_string(decision, "actor_agent_id"),
@@ -333,6 +365,7 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
         return {"executed": True, "action": decision.action.value, "result": result}
 
     if decision.action == LlmDecisionAction.PROPOSE_MATCH:
+        _disclose_attached_facts(decision, service)
         result = service.propose_match(
             negotiation_id=_required_string(decision, "negotiation_id"),
             actor_agent_id=_required_string(decision, "actor_agent_id"),
@@ -341,6 +374,7 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
         return {"executed": True, "action": decision.action.value, "result": result}
 
     if decision.action == LlmDecisionAction.ACCEPT_MATCH:
+        _disclose_attached_facts(decision, service)
         result = service.accept_match(
             negotiation_id=_required_string(decision, "negotiation_id"),
             actor_agent_id=_required_string(decision, "actor_agent_id"),
@@ -348,6 +382,7 @@ def execute_llm_decision(decision: LlmDecision, service: LlmNegotiationService) 
         return {"executed": True, "action": decision.action.value, "result": result}
 
     if decision.action == LlmDecisionAction.CLOSE_NEGOTIATION:
+        _disclose_attached_facts(decision, service)
         result = service.close_negotiation(
             negotiation_id=_required_string(decision, "negotiation_id"),
             actor_agent_id=_required_string(decision, "actor_agent_id"),
@@ -378,3 +413,16 @@ def _required_object(decision: LlmDecision, field: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise LlmDecisionExecutionError(f"field {field} must be object")
     return value
+
+
+def _disclose_attached_facts(decision: LlmDecision, service: LlmNegotiationService) -> None:
+    fields = decision.payload.get("disclose_fact_fields", [])
+    if not fields:
+        return
+    if not isinstance(fields, list) or any(not isinstance(item, str) for item in fields):
+        raise LlmDecisionExecutionError("field disclose_fact_fields must be array of strings")
+    service.disclose_facts(
+        negotiation_id=_required_string(decision, "negotiation_id"),
+        actor_agent_id=_required_string(decision, "actor_agent_id"),
+        fields=fields,
+    )

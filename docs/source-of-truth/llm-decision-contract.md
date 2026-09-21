@@ -12,6 +12,8 @@ The contract describes the only JSON decision signals an LLM may emit. It does n
 - The JSON object must have an `action` field.
 - The action must be one of the supported action values below.
 - Each action permits only its documented fields.
+- Substantive open-negotiation actions may optionally attach `disclose_fact_fields` to disclose currently available represented-party facts before the action executes.
+- Fact disclosure is not a standalone action.
 - Unknown actions, missing required fields, wrong field types, and extra fields are invalid.
 - Valid decisions are still subject to application service authorization and protocol validation before execution.
 
@@ -58,6 +60,10 @@ Required fields:
 - `actor_agent_id`: string
 - `body`: string
 
+Optional fields:
+
+- `disclose_fact_fields`: array of strings naming currently available represented-party fact fields to disclose before the message is appended.
+
 ### `propose_match`
 
 Propose a match in an open negotiation.
@@ -69,6 +75,10 @@ Required fields:
 - `actor_agent_id`: string
 - `proposal`: object
 
+Optional fields:
+
+- `disclose_fact_fields`: array of strings naming currently available represented-party fact fields to disclose before the match proposal is appended.
+
 ### `accept_match`
 
 Accept a previously proposed match.
@@ -78,6 +88,10 @@ Required fields:
 - `action`: `"accept_match"`
 - `negotiation_id`: string
 - `actor_agent_id`: string
+
+Optional fields:
+
+- `disclose_fact_fields`: array of strings naming currently available represented-party fact fields to disclose before match acceptance is appended.
 
 ### `close_negotiation`
 
@@ -89,6 +103,10 @@ Required fields:
 - `negotiation_id`: string
 - `actor_agent_id`: string
 - `reason`: string
+
+Optional fields:
+
+- `disclose_fact_fields`: array of strings naming currently available represented-party fact fields to disclose before the close event is appended.
 
 ### `defer`
 

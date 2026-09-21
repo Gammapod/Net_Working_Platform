@@ -134,6 +134,14 @@ def test_get_agent_decision_context_returns_structured_read_only_context() -> No
                 "messages_remaining_for_agent": 3,
             },
         },
+        "available_fact_disclosures_by_negotiation": {
+            "requested_in": [],
+            "open_out": [],
+        },
+        "disclosed_facts_by_negotiation": {
+            "requested_in": [],
+            "open_out": [],
+        },
         "inbound_requested_negotiations": [
             {
                 "id": "requested_in",

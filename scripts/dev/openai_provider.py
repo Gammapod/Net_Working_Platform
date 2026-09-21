@@ -14,7 +14,7 @@ OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body", "proposal"],
+    "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body", "disclose_fact_fields", "proposal"],
     "properties": {
         "action": {
             "type": "string",
@@ -32,6 +32,7 @@ OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA: dict[str, object] = {
         "negotiation_id": {"type": "string"},
         "reason": {"type": "string"},
         "body": {"type": "string"},
+        "disclose_fact_fields": {"type": "array", "items": {"type": "string"}},
         "proposal": {
             "type": "object",
             "additionalProperties": False,
@@ -117,32 +118,36 @@ def _to_contract_decision(value: dict[str, Any]) -> dict[str, Any]:
             "reason": value["reason"],
         }
     if action == "send_message":
-        return {
+        decision = {
             "action": value["action"],
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
             "body": value["body"],
         }
+        return _with_attached_facts(decision, value)
     if action == "propose_match":
-        return {
+        decision = {
             "action": value["action"],
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
             "proposal": value["proposal"],
         }
+        return _with_attached_facts(decision, value)
     if action == "accept_match":
-        return {
+        decision = {
             "action": value["action"],
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
         }
+        return _with_attached_facts(decision, value)
     if action == "close_negotiation":
-        return {
+        decision = {
             "action": value["action"],
             "negotiation_id": value["negotiation_id"],
             "actor_agent_id": value["actor_agent_id"],
             "reason": value["reason"],
         }
+        return _with_attached_facts(decision, value)
     if action == "defer":
         return {
             "action": value["action"],
@@ -150,3 +155,10 @@ def _to_contract_decision(value: dict[str, Any]) -> dict[str, Any]:
             "reason": value["reason"],
         }
     return value
+
+
+def _with_attached_facts(decision: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
+    fields = value.get("disclose_fact_fields", [])
+    if fields:
+        decision["disclose_fact_fields"] = fields
+    return decision

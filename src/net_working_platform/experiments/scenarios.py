@@ -11,8 +11,11 @@ from net_working_platform.domain.model import (
     NegotiationDecision,
     Node,
     NodeType,
+    FactKind,
     RepresentationEdge,
     RepresentationState,
+    RepresentedPartyFact,
+    RepresentedPartyProfile,
 )
 from net_working_platform.storage.repositories import (
     SqlAgentConnectionRepository,
@@ -83,6 +86,7 @@ class PairwiseStrategyScenario:
     principal_strategy_id: str
     client_facts: dict[str, object]
     principal_facts: dict[str, object]
+    represented_party_profiles_by_agent: dict[str, list[RepresentedPartyProfile]]
 
 
 def seed_inbound_request_scenario(
@@ -445,6 +449,7 @@ def seed_pairwise_strategy_scenario(
         "compensation_band": "market competitive",
         "evidence_preferences": ["recent project examples", "references"],
     }
+    represented_party_profiles_by_agent = _pairwise_fact_profiles_by_agent()
 
     with engine.begin() as connection:
         nodes = SqlNodeRepository(connection)
@@ -501,7 +506,99 @@ def seed_pairwise_strategy_scenario(
         principal_strategy_id=principal_strategy_id,
         client_facts=client_facts,
         principal_facts=principal_facts,
+        represented_party_profiles_by_agent=represented_party_profiles_by_agent,
     )
+
+
+def _pairwise_fact_profiles_by_agent() -> dict[str, list[RepresentedPartyProfile]]:
+    return {
+        "client_agent": [
+            RepresentedPartyProfile(
+                represented_party_id="client",
+                represented_party_type="client",
+                facts={
+                    "salary_range": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Desired salary range",
+                        value={"min": 140000, "max": 170000, "currency": "USD"},
+                    ),
+                    "credentials": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Provable credentials",
+                        value={"education": ["BS Computer Science"], "certifications": ["AWS Developer Associate"]},
+                    ),
+                    "benefits": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Desired benefits",
+                        value=["health insurance", "401k match", "remote work support"],
+                    ),
+                    "employment_type": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Acceptable employment types",
+                        value=["salaried W-2"],
+                    ),
+                    "disposition": RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Working style and interests",
+                        value={"working_style": ["independent", "mentors junior engineers"], "interests": ["API design", "data reliability"]},
+                    ),
+                    "career_path": RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Desired career path",
+                        value={"trajectory": "senior backend IC to staff engineer", "growth_interests": ["technical leadership", "system design"]},
+                    ),
+                },
+                priorities=(
+                    {"field": "salary_range", "rank": 1, "importance": "hard"},
+                    {"field": "employment_type", "rank": 2, "importance": "hard"},
+                    {"field": "career_path", "rank": 3, "importance": "strong"},
+                ),
+            )
+        ],
+        "principal_agent": [
+            RepresentedPartyProfile(
+                represented_party_id="principal",
+                represented_party_type="principal",
+                facts={
+                    "salary_range": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Offered salary range",
+                        value={"min": 130000, "max": 160000, "currency": "USD"},
+                    ),
+                    "credentials": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Required credentials",
+                        value={"education": ["BS Computer Science or equivalent experience"], "certifications": []},
+                    ),
+                    "benefits": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Offered benefits",
+                        value=["health insurance", "401k match", "remote work support"],
+                    ),
+                    "employment_type": RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Offered employment type",
+                        value=["salaried W-2"],
+                    ),
+                    "disposition": RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Desired working style",
+                        value={"working_style": ["independent", "comfortable mentoring"], "team_context": "small platform team with high ownership"},
+                    ),
+                    "career_path": RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Expected growth path",
+                        value={"trajectory": "backend engineer to technical lead", "growth_support": ["architecture ownership", "mentoring opportunities"]},
+                    ),
+                },
+                priorities=(
+                    {"field": "credentials", "rank": 1, "importance": "hard"},
+                    {"field": "employment_type", "rank": 2, "importance": "hard"},
+                    {"field": "disposition", "rank": 3, "importance": "strong"},
+                ),
+            )
+        ],
+    }
 
 
 def _market_role(client_index: int, principal_index: int) -> str:

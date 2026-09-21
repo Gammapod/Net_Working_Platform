@@ -112,6 +112,41 @@ def test_llm_decision_json_schema_describes_supported_actions() -> None:
     }
 
 
+def test_parse_llm_decision_accepts_attached_fact_disclosure_fields() -> None:
+    """Protects INV-L-001 and INV-L-002."""
+    decision = parse_llm_decision(
+        {
+            "action": "send_message",
+            "negotiation_id": "negotiation_1",
+            "actor_agent_id": "client_agent",
+            "body": "I am sharing compensation context because it is relevant to fit.",
+            "disclose_fact_fields": ["salary_range", "career_path"],
+        }
+    )
+
+    assert decision.action == LlmDecisionAction.SEND_MESSAGE
+    assert decision.payload == {
+        "negotiation_id": "negotiation_1",
+        "actor_agent_id": "client_agent",
+        "body": "I am sharing compensation context because it is relevant to fit.",
+        "disclose_fact_fields": ["salary_range", "career_path"],
+    }
+
+
+def test_parse_llm_decision_rejects_invalid_attached_fact_disclosure_fields() -> None:
+    """Protects INV-L-002."""
+    with pytest.raises(LlmDecisionValidationError, match="field disclose_fact_fields must contain strings"):
+        parse_llm_decision(
+            {
+                "action": "send_message",
+                "negotiation_id": "negotiation_1",
+                "actor_agent_id": "client_agent",
+                "body": "Sharing context.",
+                "disclose_fact_fields": ["salary_range", 12],
+            }
+        )
+
+
 def test_turn_decision_json_schema_constrains_actions_actor_and_negotiation() -> None:
     """Protects INV-L-005 and INV-L-006."""
     schema = build_turn_decision_json_schema(
@@ -125,3 +160,4 @@ def test_turn_decision_json_schema_constrains_actions_actor_and_negotiation() ->
     assert schema["properties"]["action"] == {"type": "string", "enum": ["accept_match", "close_negotiation"]}
     assert schema["properties"]["actor_agent_id"] == {"type": "string", "enum": ["agent_1"]}
     assert schema["properties"]["negotiation_id"] == {"type": "string", "enum": ["negotiation_1"]}
+    assert schema["properties"]["disclose_fact_fields"]["items"] == {"type": "string", "enum": []}

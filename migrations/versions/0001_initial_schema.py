@@ -83,7 +83,7 @@ def upgrade() -> None:
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.CheckConstraint(
-            "type in ('open_negotiation_request', 'open_negotiation_response', 'message', 'match_proposed', 'match_accepted', 'close_negotiation')",
+            "type in ('open_negotiation_request', 'open_negotiation_response', 'message', 'fact_disclosed', 'match_proposed', 'match_accepted', 'close_negotiation')",
             name="protocol_events_type_check",
         ),
         sa.ForeignKeyConstraint(["actor_agent_id"], ["nodes.id"]),
