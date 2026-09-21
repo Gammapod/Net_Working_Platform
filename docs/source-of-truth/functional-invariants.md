@@ -25,7 +25,6 @@ Clients/jobseekers and principals/hirers are graph nodes distinct from agents.
 
 Protected by:
 
-- Planned: `test_client_and_principal_node_types_are_distinct`
 - `test_client_and_principal_node_types_are_distinct`
 - `test_core_table_columns_match_repository_contracts`
 
@@ -35,7 +34,6 @@ An agent-client or agent-principal representation edge is a different relationsh
 
 Protected by:
 
-- Planned: `test_representation_edges_are_separate_from_agent_connections`
 - `test_representation_edges_are_separate_from_agent_connections`
 - `test_sql_repositories_round_trip_core_graph_records`
 
@@ -47,7 +45,6 @@ An agent may request a negotiation with another agent only when there is an acti
 
 Protected by:
 
-- Planned: `test_request_negotiation_requires_active_agent_connection`
 - `test_request_negotiation_requires_active_agent_connection`
 - `test_request_negotiation_service_requires_active_connection`
 - `test_agent_connections_are_directional`
@@ -77,7 +74,6 @@ A negotiation is its own record. It is not only an edge state or a message threa
 
 Protected by:
 
-- Planned: `test_request_negotiation_creates_negotiation_record`
 - `test_open_negotiation_request_creates_requested_state`
 - `test_request_negotiation_service_creates_record_and_event`
 - `test_sql_repositories_round_trip_negotiation_and_events_in_order`
@@ -89,7 +85,6 @@ An `open_negotiation_request` creates a negotiation in `requested` state.
 
 Protected by:
 
-- Planned: `test_open_negotiation_request_creates_requested_negotiation`
 - `test_open_negotiation_request_creates_requested_state`
 - `test_request_negotiation_service_creates_record_and_event`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
@@ -138,8 +133,6 @@ No protocol action may reopen or mutate a negotiation after it reaches `matched`
 
 Protected by:
 
-- Planned: `test_closed_negotiation_rejects_messages`
-- Planned: `test_matched_negotiation_rejects_close`
 - `test_closed_negotiation_rejects_messages`
 - `test_matched_negotiation_rejects_close`
 - `test_close_negotiation_service_closes_open_negotiation`
@@ -164,7 +157,6 @@ Every protocol action must create an append-only event with actor, timestamp, ne
 
 Protected by:
 
-- Planned: `test_protocol_action_appends_event`
 - `test_request_negotiation_service_creates_record_and_event`
 - `test_accept_negotiation_service_opens_requested_negotiation`
 - `test_reject_negotiation_service_closes_requested_negotiation`
@@ -188,7 +180,6 @@ History retrieval must return structured records, not only concatenated text.
 
 Protected by:
 
-- Planned: `test_retrieve_negotiation_history_returns_structured_events`
 - `test_retrieve_negotiation_history_returns_structured_events`
 - `test_sql_repositories_round_trip_negotiation_and_events_in_order`
 - `test_sql_backed_negotiation_service_runs_full_lifecycle`
@@ -287,7 +278,6 @@ An agent cannot exceed its configured maximum active negotiations. Active load i
 
 Protected by:
 
-- Planned: `test_open_negotiation_limit_enforced`
 - `test_open_negotiation_capacity_allows_below_limit`
 - `test_open_negotiation_capacity_rejects_at_limit`
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
@@ -300,7 +290,6 @@ A protocol action rejected due to capacity must append an event explaining the r
 
 Protected by:
 
-- Planned: `test_capacity_rejection_appends_event`
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
 
 ## CLI Invariants

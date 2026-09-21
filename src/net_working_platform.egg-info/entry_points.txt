@@ -1,2 +1,0 @@
-[console_scripts]
-net-working-platform = net_working_platform.cli:main
