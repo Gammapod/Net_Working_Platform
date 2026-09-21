@@ -381,6 +381,12 @@ Protected by:
 | `test_render_graph_snapshot_mermaid_uses_short_labels_and_edge_styles` | INV-H-005 |
 | `test_cli_returns_graph_mermaid` | INV-H-005, INV-CLI-001, INV-CLI-002 |
 | `test_graph_evolution_demo_writes_before_after_graphs` | INV-H-005 |
+| `test_scaled_experiment_runner_writes_graphs_transcript_and_summary` | INV-H-005 |
+| `test_scaled_experiment_runner_can_limit_turns` | INV-H-005 |
+| `test_scaled_experiment_runner_observes_20_client_10_principal_market_for_10_rounds` | INV-H-005 |
+| `test_scaled_experiment_runner_can_use_injected_llm_policy` | INV-H-005, INV-L-004 |
+| `test_scaled_experiment_runner_rejects_llm_decision_for_wrong_negotiation` | INV-H-005, INV-L-004 |
+| `test_scaled_experiment_runner_can_reset_existing_sqlite_database` | INV-H-005 |
 | `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
 | `test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations` | INV-G-001, INV-N-003, INV-N-004, INV-H-001, INV-H-004 |
 | `test_parallel_inbound_scenario_exposes_two_requested_negotiations` | INV-G-001, INV-N-002, INV-H-001, INV-H-004, INV-C-001 |

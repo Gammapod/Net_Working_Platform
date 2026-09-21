@@ -1,0 +1,56 @@
+{
+  "db_url": "sqlite+pysqlite:///docs/development/scaled-experiment-demo.db",
+  "decision_source": "scripted",
+  "metrics": {
+    "deferrals": 0,
+    "event_deltas_by_type": {
+      "close_negotiation": 1,
+      "match_accepted": 1,
+      "match_proposed": 1,
+      "message": 2
+    },
+    "executed_decisions_by_action": {
+      "accept_match": 1,
+      "close_negotiation": 1,
+      "propose_match": 1,
+      "send_message": 2
+    },
+    "final_negotiation_states": {
+      "closed": 1,
+      "matched": 1,
+      "open": 1
+    },
+    "focus_mismatch_attempts": 0,
+    "initial_negotiation_states": {
+      "open": 3
+    },
+    "invalid_attempts": 0,
+    "match_proposals": 1,
+    "matches_accepted": 1,
+    "messages_sent": 2,
+    "negotiations_closed": 1,
+    "raw_decisions_by_action": {
+      "accept_match": 1,
+      "close_negotiation": 1,
+      "propose_match": 1,
+      "send_message": 2
+    }
+  },
+  "outputs": {
+    "final_graph": "docs\\development\\scaled-experiment-demo\\final_graph.mmd",
+    "initial_graph": "docs\\development\\scaled-experiment-demo\\initial_graph.mmd",
+    "summary": "docs\\development\\scaled-experiment-demo\\summary.json",
+    "transcript": "docs\\development\\scaled-experiment-demo\\transcript.jsonl"
+  },
+  "reset_db": true,
+  "rounds_observed": 1,
+  "scenario": "two-client-two-principal",
+  "scenario_config": {
+    "client_count": 2,
+    "initial_negotiation_count": 3,
+    "negotiations_per_client": null,
+    "principal_count": 2,
+    "requested_rounds": 1
+  },
+  "turns_executed": 5
+}

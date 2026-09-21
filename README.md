@@ -203,7 +203,17 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
 - [Graph Visualizer Plan](docs/development/graph-visualizer-plan.md)
+- [Game-Theory Experiment Plan](docs/development/game-theory-experiment-plan.md)
 - [Referral Relay Seed Graph](docs/development/referral-relay-graph.md)
 - [Two-Client/Two-Principal Starting Graph](docs/development/two-client-two-principal-starting-graph.mmd)
 - [Graph Evolution Demo: Initial Graph](docs/development/graph-evolution-demo/initial_graph.mmd)
 - [Graph Evolution Demo: Final Graph](docs/development/graph-evolution-demo/final_graph.mmd)
+- [Scaled Experiment Demo: Initial Graph](docs/development/scaled-experiment-demo/initial_graph.mmd)
+- [Scaled Experiment Demo: Final Graph](docs/development/scaled-experiment-demo/final_graph.mmd)
+- [Scaled Experiment Demo: Transcript](docs/development/scaled-experiment-demo/transcript.jsonl)
+- [Market Scale Demo: Initial Graph](docs/development/market-scale-demo/initial_graph.mmd)
+- [Market Scale Demo: Final Graph](docs/development/market-scale-demo/final_graph.mmd)
+- [Market Scale Demo: Transcript](docs/development/market-scale-demo/transcript.jsonl)
+- [Market Scale Demo: Summary](docs/development/market-scale-demo/summary.json)
+
+Run the same market with live OpenAI decisions by passing `--decision-source openai` to `scripts.dev.run_scaled_experiment`. The full 20-client/10-principal/10-round run makes 400 model calls; use `--turns` for a smaller smoke run. Use `--reset-db` when rerunning against the same SQLite database path.

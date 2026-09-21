@@ -1,0 +1,20 @@
+flowchart LR
+  client_1["Client 1"]
+  client_2["Client 2"]
+  client_agent_1["Client Agent 1"]
+  client_agent_2["Client Agent 2"]
+  principal_1["Principal 1"]
+  principal_2["Principal 2"]
+  principal_agent_1["Principal Agent 1"]
+  principal_agent_2["Principal Agent 2"]
+
+  client_agent_1 -->|"active"| principal_agent_1
+  client_agent_1 -->|"active"| principal_agent_2
+  client_agent_2 -->|"active"| principal_agent_1
+  client_agent_1 -.->|"active"| client_1
+  client_agent_2 -.->|"active"| client_2
+  principal_agent_1 -.->|"active"| principal_1
+  principal_agent_2 -.->|"active"| principal_2
+  client_agent_1 ==>|"matched"| principal_agent_1
+  client_agent_1 ==>|"closed"| principal_agent_2
+  client_agent_2 ==>|"open"| principal_agent_1

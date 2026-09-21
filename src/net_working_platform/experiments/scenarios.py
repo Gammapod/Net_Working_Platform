@@ -61,6 +61,16 @@ class TwoClientTwoPrincipalScenario:
     negotiation_ids: tuple[str, str, str]
 
 
+@dataclass(frozen=True)
+class MarketScenario:
+    db_url: str
+    client_agent_ids: tuple[str, ...]
+    principal_agent_ids: tuple[str, ...]
+    client_ids: tuple[str, ...]
+    principal_ids: tuple[str, ...]
+    negotiation_ids: tuple[str, ...]
+
+
 def seed_inbound_request_scenario(
     db_url: str,
     *,
@@ -300,3 +310,101 @@ def seed_two_client_two_principal_scenario(db_url: str) -> TwoClientTwoPrincipal
         principal_ids=("principal_1", "principal_2"),
         negotiation_ids=tuple(negotiation.id for negotiation in negotiations),
     )
+
+
+def seed_market_scenario(
+    db_url: str,
+    *,
+    client_count: int,
+    principal_count: int,
+    negotiations_per_client: int = 2,
+) -> MarketScenario:
+    """Create a deterministic many-client/many-principal experiment market."""
+    if client_count < 1:
+        raise ValueError("client_count must be at least 1")
+    if principal_count < 1:
+        raise ValueError("principal_count must be at least 1")
+    if negotiations_per_client < 1:
+        raise ValueError("negotiations_per_client must be at least 1")
+
+    negotiations_per_client = min(negotiations_per_client, principal_count)
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    client_agent_ids = tuple(f"client_agent_{index}" for index in range(1, client_count + 1))
+    principal_agent_ids = tuple(f"principal_agent_{index}" for index in range(1, principal_count + 1))
+    client_ids = tuple(f"client_{index}" for index in range(1, client_count + 1))
+    principal_ids = tuple(f"principal_{index}" for index in range(1, principal_count + 1))
+    negotiation_ids = tuple(
+        f"negotiation_client{client_index}_principal{((client_index + offset - 2) % principal_count) + 1}"
+        for client_index in range(1, client_count + 1)
+        for offset in range(1, negotiations_per_client + 1)
+    )
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+
+        for index, agent_id in enumerate(client_agent_ids, start=1):
+            nodes.add(Node(id=agent_id, type=NodeType.AGENT), display_name=f"Client Agent {index}")
+        for index, agent_id in enumerate(principal_agent_ids, start=1):
+            nodes.add(Node(id=agent_id, type=NodeType.AGENT), display_name=f"Principal Agent {index}")
+        for index, client_id in enumerate(client_ids, start=1):
+            nodes.add(Node(id=client_id, type=NodeType.CLIENT), display_name=f"Client {index}")
+        for index, principal_id in enumerate(principal_ids, start=1):
+            nodes.add(Node(id=principal_id, type=NodeType.PRINCIPAL), display_name=f"Principal {index}")
+
+        for agent_id, client_id in zip(client_agent_ids, client_ids, strict=True):
+            representation_edges.add(RepresentationEdge(agent_id, client_id, NodeType.CLIENT, RepresentationState.ACTIVE))
+        for agent_id, principal_id in zip(principal_agent_ids, principal_ids, strict=True):
+            representation_edges.add(RepresentationEdge(agent_id, principal_id, NodeType.PRINCIPAL, RepresentationState.ACTIVE))
+
+        for client_index, client_agent_id in enumerate(client_agent_ids, start=1):
+            for offset in range(negotiations_per_client):
+                principal_index = ((client_index + offset - 1) % principal_count) + 1
+                principal_agent_id = f"principal_agent_{principal_index}"
+                agent_connections.add(
+                    AgentConnection(client_agent_id, principal_agent_id, AgentConnectionState.ACTIVE)
+                )
+
+        ids = iter(negotiation_ids)
+        service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: next(ids),
+            now=lambda: datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc),
+        )
+        for client_index, client_agent_id in enumerate(client_agent_ids, start=1):
+            for offset in range(negotiations_per_client):
+                principal_index = ((client_index + offset - 1) % principal_count) + 1
+                principal_agent_id = f"principal_agent_{principal_index}"
+                negotiation = service.request_negotiation(
+                    from_agent_id=client_agent_id,
+                    to_agent_id=principal_agent_id,
+                    subject={
+                        "client_id": f"client_{client_index}",
+                        "principal_id": f"principal_{principal_index}",
+                        "role": _market_role(client_index, principal_index),
+                        "market_scenario": "parameterized",
+                    },
+                    max_open_negotiations=max(negotiations_per_client + 1, 5),
+                )
+                service.respond_to_negotiation(
+                    negotiation_id=negotiation.id,
+                    actor_agent_id=principal_agent_id,
+                    decision=NegotiationDecision.ACCEPT,
+                )
+
+    return MarketScenario(
+        db_url=db_url,
+        client_agent_ids=client_agent_ids,
+        principal_agent_ids=principal_agent_ids,
+        client_ids=client_ids,
+        principal_ids=principal_ids,
+        negotiation_ids=negotiation_ids,
+    )
+
+
+def _market_role(client_index: int, principal_index: int) -> str:
+    roles = ["backend engineer", "data engineer", "platform engineer", "frontend engineer", "ml engineer"]
+    return roles[(client_index + principal_index) % len(roles)]

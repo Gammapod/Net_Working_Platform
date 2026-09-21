@@ -1,0 +1,172 @@
+flowchart LR
+  client_1["Client 1"]
+  client_10["Client 10"]
+  client_11["Client 11"]
+  client_12["Client 12"]
+  client_13["Client 13"]
+  client_14["Client 14"]
+  client_15["Client 15"]
+  client_16["Client 16"]
+  client_17["Client 17"]
+  client_18["Client 18"]
+  client_19["Client 19"]
+  client_2["Client 2"]
+  client_20["Client 20"]
+  client_3["Client 3"]
+  client_4["Client 4"]
+  client_5["Client 5"]
+  client_6["Client 6"]
+  client_7["Client 7"]
+  client_8["Client 8"]
+  client_9["Client 9"]
+  client_agent_1["Client Agent 1"]
+  client_agent_10["Client Agent 10"]
+  client_agent_11["Client Agent 11"]
+  client_agent_12["Client Agent 12"]
+  client_agent_13["Client Agent 13"]
+  client_agent_14["Client Agent 14"]
+  client_agent_15["Client Agent 15"]
+  client_agent_16["Client Agent 16"]
+  client_agent_17["Client Agent 17"]
+  client_agent_18["Client Agent 18"]
+  client_agent_19["Client Agent 19"]
+  client_agent_2["Client Agent 2"]
+  client_agent_20["Client Agent 20"]
+  client_agent_3["Client Agent 3"]
+  client_agent_4["Client Agent 4"]
+  client_agent_5["Client Agent 5"]
+  client_agent_6["Client Agent 6"]
+  client_agent_7["Client Agent 7"]
+  client_agent_8["Client Agent 8"]
+  client_agent_9["Client Agent 9"]
+  principal_1["Principal 1"]
+  principal_10["Principal 10"]
+  principal_2["Principal 2"]
+  principal_3["Principal 3"]
+  principal_4["Principal 4"]
+  principal_5["Principal 5"]
+  principal_6["Principal 6"]
+  principal_7["Principal 7"]
+  principal_8["Principal 8"]
+  principal_9["Principal 9"]
+  principal_agent_1["Principal Agent 1"]
+  principal_agent_10["Principal Agent 10"]
+  principal_agent_2["Principal Agent 2"]
+  principal_agent_3["Principal Agent 3"]
+  principal_agent_4["Principal Agent 4"]
+  principal_agent_5["Principal Agent 5"]
+  principal_agent_6["Principal Agent 6"]
+  principal_agent_7["Principal Agent 7"]
+  principal_agent_8["Principal Agent 8"]
+  principal_agent_9["Principal Agent 9"]
+
+  client_agent_1 -->|"active"| principal_agent_1
+  client_agent_1 -->|"active"| principal_agent_2
+  client_agent_10 -->|"active"| principal_agent_1
+  client_agent_10 -->|"active"| principal_agent_10
+  client_agent_11 -->|"active"| principal_agent_1
+  client_agent_11 -->|"active"| principal_agent_2
+  client_agent_12 -->|"active"| principal_agent_2
+  client_agent_12 -->|"active"| principal_agent_3
+  client_agent_13 -->|"active"| principal_agent_3
+  client_agent_13 -->|"active"| principal_agent_4
+  client_agent_14 -->|"active"| principal_agent_4
+  client_agent_14 -->|"active"| principal_agent_5
+  client_agent_15 -->|"active"| principal_agent_5
+  client_agent_15 -->|"active"| principal_agent_6
+  client_agent_16 -->|"active"| principal_agent_6
+  client_agent_16 -->|"active"| principal_agent_7
+  client_agent_17 -->|"active"| principal_agent_7
+  client_agent_17 -->|"active"| principal_agent_8
+  client_agent_18 -->|"active"| principal_agent_8
+  client_agent_18 -->|"active"| principal_agent_9
+  client_agent_19 -->|"active"| principal_agent_10
+  client_agent_19 -->|"active"| principal_agent_9
+  client_agent_2 -->|"active"| principal_agent_2
+  client_agent_2 -->|"active"| principal_agent_3
+  client_agent_20 -->|"active"| principal_agent_1
+  client_agent_20 -->|"active"| principal_agent_10
+  client_agent_3 -->|"active"| principal_agent_3
+  client_agent_3 -->|"active"| principal_agent_4
+  client_agent_4 -->|"active"| principal_agent_4
+  client_agent_4 -->|"active"| principal_agent_5
+  client_agent_5 -->|"active"| principal_agent_5
+  client_agent_5 -->|"active"| principal_agent_6
+  client_agent_6 -->|"active"| principal_agent_6
+  client_agent_6 -->|"active"| principal_agent_7
+  client_agent_7 -->|"active"| principal_agent_7
+  client_agent_7 -->|"active"| principal_agent_8
+  client_agent_8 -->|"active"| principal_agent_8
+  client_agent_8 -->|"active"| principal_agent_9
+  client_agent_9 -->|"active"| principal_agent_10
+  client_agent_9 -->|"active"| principal_agent_9
+  client_agent_1 -.->|"active"| client_1
+  client_agent_10 -.->|"active"| client_10
+  client_agent_11 -.->|"active"| client_11
+  client_agent_12 -.->|"active"| client_12
+  client_agent_13 -.->|"active"| client_13
+  client_agent_14 -.->|"active"| client_14
+  client_agent_15 -.->|"active"| client_15
+  client_agent_16 -.->|"active"| client_16
+  client_agent_17 -.->|"active"| client_17
+  client_agent_18 -.->|"active"| client_18
+  client_agent_19 -.->|"active"| client_19
+  client_agent_2 -.->|"active"| client_2
+  client_agent_20 -.->|"active"| client_20
+  client_agent_3 -.->|"active"| client_3
+  client_agent_4 -.->|"active"| client_4
+  client_agent_5 -.->|"active"| client_5
+  client_agent_6 -.->|"active"| client_6
+  client_agent_7 -.->|"active"| client_7
+  client_agent_8 -.->|"active"| client_8
+  client_agent_9 -.->|"active"| client_9
+  principal_agent_1 -.->|"active"| principal_1
+  principal_agent_10 -.->|"active"| principal_10
+  principal_agent_2 -.->|"active"| principal_2
+  principal_agent_3 -.->|"active"| principal_3
+  principal_agent_4 -.->|"active"| principal_4
+  principal_agent_5 -.->|"active"| principal_5
+  principal_agent_6 -.->|"active"| principal_6
+  principal_agent_7 -.->|"active"| principal_7
+  principal_agent_8 -.->|"active"| principal_8
+  principal_agent_9 -.->|"active"| principal_9
+  client_agent_1 ==>|"open"| principal_agent_1
+  client_agent_1 ==>|"open"| principal_agent_2
+  client_agent_2 ==>|"open"| principal_agent_2
+  client_agent_2 ==>|"open"| principal_agent_3
+  client_agent_3 ==>|"open"| principal_agent_3
+  client_agent_3 ==>|"open"| principal_agent_4
+  client_agent_4 ==>|"open"| principal_agent_4
+  client_agent_4 ==>|"open"| principal_agent_5
+  client_agent_5 ==>|"open"| principal_agent_5
+  client_agent_5 ==>|"open"| principal_agent_6
+  client_agent_6 ==>|"open"| principal_agent_6
+  client_agent_6 ==>|"open"| principal_agent_7
+  client_agent_7 ==>|"open"| principal_agent_7
+  client_agent_7 ==>|"open"| principal_agent_8
+  client_agent_8 ==>|"open"| principal_agent_8
+  client_agent_8 ==>|"open"| principal_agent_9
+  client_agent_9 ==>|"open"| principal_agent_9
+  client_agent_9 ==>|"open"| principal_agent_10
+  client_agent_10 ==>|"open"| principal_agent_10
+  client_agent_10 ==>|"open"| principal_agent_1
+  client_agent_11 ==>|"open"| principal_agent_1
+  client_agent_11 ==>|"open"| principal_agent_2
+  client_agent_12 ==>|"open"| principal_agent_2
+  client_agent_12 ==>|"open"| principal_agent_3
+  client_agent_13 ==>|"open"| principal_agent_3
+  client_agent_13 ==>|"open"| principal_agent_4
+  client_agent_14 ==>|"open"| principal_agent_4
+  client_agent_14 ==>|"open"| principal_agent_5
+  client_agent_15 ==>|"open"| principal_agent_5
+  client_agent_15 ==>|"open"| principal_agent_6
+  client_agent_16 ==>|"open"| principal_agent_6
+  client_agent_16 ==>|"open"| principal_agent_7
+  client_agent_17 ==>|"open"| principal_agent_7
+  client_agent_17 ==>|"open"| principal_agent_8
+  client_agent_18 ==>|"open"| principal_agent_8
+  client_agent_18 ==>|"open"| principal_agent_9
+  client_agent_19 ==>|"open"| principal_agent_9
+  client_agent_19 ==>|"open"| principal_agent_10
+  client_agent_20 ==>|"open"| principal_agent_10
+  client_agent_20 ==>|"open"| principal_agent_1

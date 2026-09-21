@@ -141,6 +141,8 @@ Recommendation: use Cytoscape.js when building the first interactive viewer, but
 
 Time travel is feasible but should come after the snapshot seam is stable.
 
+Status: A deterministic scaled-experiment scaffold exists and emits `initial_graph.mmd`, `final_graph.mmd`, `transcript.jsonl`, and `summary.json`. This is not an interactive time-travel UI yet, but it creates the artifact shape needed for one.
+
 Required capabilities:
 
 - ordered experiment/run timeline;
@@ -151,6 +153,73 @@ Required capabilities:
 - click-through inspection for state and event history at that moment.
 
 Open design question: whether to reconstruct every snapshot from append-only events or periodically persist snapshot checkpoints during scaled runs.
+
+## Scaled Experiment Milestone
+
+The first larger market-shaped observation milestone is implemented as a deterministic scaffold:
+
+- 20 clients represented by client agents;
+- 10 principals represented by principal agents;
+- at least 10 rounds;
+- per-turn transcript explaining each agent decision;
+- initial and final graph snapshots;
+- summary metrics across the market.
+
+Current command:
+
+```powershell
+python -m scripts.dev.run_scaled_experiment `
+  --scenario market `
+  --clients 20 `
+  --principals 10 `
+  --negotiations-per-client 2 `
+  --rounds 10 `
+  --db-url "sqlite+pysqlite:///docs/development/market-scale-demo.db" `
+  --output-dir "docs/development/market-scale-demo"
+```
+
+Current example output:
+
+- `docs/development/market-scale-demo/initial_graph.mmd`
+- `docs/development/market-scale-demo/final_graph.mmd`
+- `docs/development/market-scale-demo/transcript.jsonl`
+- `docs/development/market-scale-demo/summary.json`
+
+The same runner can use live OpenAI decisions instead of the deterministic scripted policy:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+python -m scripts.dev.run_scaled_experiment `
+  --scenario market `
+  --clients 20 `
+  --principals 10 `
+  --negotiations-per-client 2 `
+  --rounds 10 `
+  --decision-source openai `
+  --openai-model gpt-4o-mini `
+  --reset-db `
+  --db-url "sqlite+pysqlite:///runs/market-llm-20x10x10.db" `
+  --output-dir "runs/market-llm-20x10x10"
+```
+
+The full 20-client/10-principal/10-round configuration executes 400 turns and therefore requests 400 model decisions. Use `--turns <n>` for a smaller live smoke run before running the full market. Use `--reset-db` when rerunning against a deterministic SQLite database path; otherwise seeding the same IDs into an existing database will fail.
+
+The current deterministic runner is intentionally smaller. It establishes the artifact contract:
+
+```text
+initial_graph.mmd
+final_graph.mmd
+transcript.jsonl
+summary.json
+```
+
+To move from deterministic scaffold to richer market observation, add:
+
+- richer per-turn decision context summaries;
+- aggregate market metrics.
+- comparative analysis between scripted and LLM-backed runs.
+
+Current scaled summaries include invalid attempts, focus mismatch attempts, final negotiation states, executed actions by type, and protocol event deltas by type. LLM-backed runs enforce the scheduled actor and negotiation focus before executing model decisions.
 
 ## Backend Work Before Viewer
 
