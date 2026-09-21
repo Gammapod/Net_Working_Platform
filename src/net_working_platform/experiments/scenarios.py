@@ -71,6 +71,20 @@ class MarketScenario:
     negotiation_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PairwiseStrategyScenario:
+    db_url: str
+    client_agent_id: str
+    principal_agent_id: str
+    client_id: str
+    principal_id: str
+    negotiation_id: str
+    client_strategy_id: str
+    principal_strategy_id: str
+    client_facts: dict[str, object]
+    principal_facts: dict[str, object]
+
+
 def seed_inbound_request_scenario(
     db_url: str,
     *,
@@ -402,6 +416,91 @@ def seed_market_scenario(
         client_ids=client_ids,
         principal_ids=principal_ids,
         negotiation_ids=negotiation_ids,
+    )
+
+
+def seed_pairwise_strategy_scenario(
+    db_url: str,
+    *,
+    client_strategy_id: str,
+    principal_strategy_id: str,
+    client_facts: dict[str, object] | None = None,
+    principal_facts: dict[str, object] | None = None,
+) -> PairwiseStrategyScenario:
+    """Create a one-client/one-principal open negotiation for pairwise strategy tests."""
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    client_facts = client_facts or {
+        "client_id": "client",
+        "target_field": "software engineering",
+        "experience": "backend Python services and data pipelines",
+        "availability": "can start within two weeks",
+        "compensation_target": "market competitive",
+    }
+    principal_facts = principal_facts or {
+        "principal_id": "principal",
+        "role": "backend engineer",
+        "hard_minimums": ["Python", "API development", "can start within one month"],
+        "compensation_band": "market competitive",
+        "evidence_preferences": ["recent project examples", "references"],
+    }
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+
+        for node_id, node_type, display_name in [
+            ("client_agent", NodeType.AGENT, "Client Strategy Agent"),
+            ("principal_agent", NodeType.AGENT, "Principal Strategy Agent"),
+            ("client", NodeType.CLIENT, "Pairwise Client"),
+            ("principal", NodeType.PRINCIPAL, "Pairwise Principal"),
+        ]:
+            nodes.add(Node(id=node_id, type=node_type), display_name=display_name)
+
+        representation_edges.add(
+            RepresentationEdge("client_agent", "client", NodeType.CLIENT, RepresentationState.ACTIVE)
+        )
+        representation_edges.add(
+            RepresentationEdge("principal_agent", "principal", NodeType.PRINCIPAL, RepresentationState.ACTIVE)
+        )
+        agent_connections.add(AgentConnection("client_agent", "principal_agent", AgentConnectionState.ACTIVE))
+
+        service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: "negotiation_pairwise",
+            now=lambda: datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc),
+        )
+        negotiation = service.request_negotiation(
+            from_agent_id="client_agent",
+            to_agent_id="principal_agent",
+            subject={
+                "client_id": "client",
+                "principal_id": "principal",
+                "role": principal_facts.get("role", "backend engineer"),
+                "client_strategy_id": client_strategy_id,
+                "principal_strategy_id": principal_strategy_id,
+            },
+            max_open_negotiations=5,
+        )
+        service.respond_to_negotiation(
+            negotiation_id=negotiation.id,
+            actor_agent_id="principal_agent",
+            decision=NegotiationDecision.ACCEPT,
+        )
+
+    return PairwiseStrategyScenario(
+        db_url=db_url,
+        client_agent_id="client_agent",
+        principal_agent_id="principal_agent",
+        client_id="client",
+        principal_id="principal",
+        negotiation_id="negotiation_pairwise",
+        client_strategy_id=client_strategy_id,
+        principal_strategy_id=principal_strategy_id,
+        client_facts=client_facts,
+        principal_facts=principal_facts,
     )
 
 

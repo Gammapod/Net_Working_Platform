@@ -134,6 +134,7 @@ Implemented and tested:
 - SQL-backed service wiring.
 - Read-only agent decision context for constrained LLM experiments.
 - Explicit capacity fields in agent decision context.
+- Per-actor free-form message quota fields in agent decision context.
 - Full protocol and valid-next-action fields in agent decision context.
 - LLM decision contract validation.
 - Validated LLM decision execution for negotiation responses, messages, match proposals, match acceptance, close, and defer.
@@ -155,6 +156,7 @@ Current automated verification:
 - Dev supervised experiment runner test.
 - Provider-agnostic context-only experiment runner test.
 - Shared-database supervised experiment runner test.
+- Pairwise strategy experiment runner test with injected-provider focus enforcement.
 
 ## Not Yet Added
 
@@ -166,6 +168,7 @@ Still missing or intentionally deferred for MVP completion:
 - DB-level append-only enforcement for `protocol_events`.
 - Agent tool wrappers around the application services.
 - Real LLM agent loop.
+- Configurable message quota policy.
 - Evidence/preflight protocol.
 - Discovery/search/ranking.
 - Frontend.
@@ -204,6 +207,8 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
 - [Graph Visualizer Plan](docs/development/graph-visualizer-plan.md)
 - [Game-Theory Experiment Plan](docs/development/game-theory-experiment-plan.md)
+- [Agent Strategy Catalog](docs/development/agent-strategy-catalog.md)
+- [Game-Theory Experiment Log](docs/development/game-theory-experiment-log.md)
 - [Referral Relay Seed Graph](docs/development/referral-relay-graph.md)
 - [Two-Client/Two-Principal Starting Graph](docs/development/two-client-two-principal-starting-graph.mmd)
 - [Graph Evolution Demo: Initial Graph](docs/development/graph-evolution-demo/initial_graph.mmd)
@@ -217,3 +222,9 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 - [Market Scale Demo: Summary](docs/development/market-scale-demo/summary.json)
 
 Run the same market with live OpenAI decisions by passing `--decision-source openai` to `scripts.dev.run_scaled_experiment`. The full 20-client/10-principal/10-round run makes 400 model calls; use `--turns` for a smaller smoke run. Use `--reset-db` when rerunning against the same SQLite database path.
+
+Run an initial pairwise strategy experiment with the default `gpt-4o-mini` baseline model:
+
+```powershell
+python -m scripts.dev.run_pairwise_strategy_experiment --db-url sqlite+pysqlite:///runs/pairwise.db --output-dir runs/pairwise --client-strategy CLIENT-FAST-ANY --principal-strategy PRINCIPAL-FAST-MINIMUMS --turns 6 --reset-db
+```

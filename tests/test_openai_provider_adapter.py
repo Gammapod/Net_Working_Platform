@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from net_working_platform.application.llm_decisions import LlmDecisionAction
+from net_working_platform.application.llm_decisions import LlmDecisionAction, build_turn_decision_json_schema
 from scripts.dev.openai_provider import OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA, request_openai_decision
 
 
@@ -104,6 +104,48 @@ def test_openai_adapter_parses_schema_constrained_decision_text() -> None:
 
     assert decision.action == LlmDecisionAction.ACCEPT_NEGOTIATION
     assert decision.payload == {"negotiation_id": "negotiation_1", "actor_agent_id": "agent_2"}
+
+
+def test_openai_adapter_accepts_turn_specific_schema_override() -> None:
+    """Protects INV-L-006."""
+    turn_schema = build_turn_decision_json_schema(
+        valid_actions=["accept_match", "close_negotiation"],
+        actor_agent_id="agent_1",
+        negotiation_id="negotiation_1",
+    )
+    opener = FakeOpener(
+        {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"action":"accept_match","negotiation_id":"negotiation_1","actor_agent_id":"agent_1"}',
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    decision = request_openai_decision(
+        prompt="Return a valid decision.",
+        api_key="test-key",
+        model="gpt-4o-mini",
+        json_schema=turn_schema,
+        opener=opener,
+    )
+
+    assert opener.captured_payload is not None
+    assert opener.captured_payload["text"] == {
+        "format": {
+            "type": "json_schema",
+            "name": "llm_decision",
+            "schema": turn_schema,
+            "strict": True,
+        }
+    }
+    assert decision.action == LlmDecisionAction.ACCEPT_MATCH
 
 
 def test_openai_adapter_normalizes_schema_constrained_message_decision() -> None:

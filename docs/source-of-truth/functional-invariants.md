@@ -149,6 +149,17 @@ Protected by:
 - `test_non_participant_cannot_accept_match`
 - `test_non_participant_cannot_close_negotiation`
 
+### INV-N-008: Free-Form Messages Are Bandwidth-Limited
+
+Free-form `send_message` actions are limited to three messages per actor per negotiation. Once an actor has sent three free-form messages in a negotiation, that actor may not send another message in that negotiation. Other protocol actions remain available according to negotiation state. If a match has been proposed and the actor has no message bandwidth remaining, the actor's valid next actions are limited to accepting the match or closing the negotiation.
+
+Protected by:
+
+- `test_send_message_service_rejects_message_after_actor_quota_used`
+- `test_message_quota_is_per_actor_per_negotiation`
+- `test_get_agent_decision_context_excludes_send_message_when_quota_used`
+- `test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used`
+
 ## Event And History Invariants
 
 ### INV-H-001: Every Protocol Action Appends An Event
@@ -186,13 +197,14 @@ Protected by:
 
 ### INV-H-004: Agent Decision Context Is Structured And Read-Only
 
-Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, capacity information when supplied, inbound requested negotiations, open negotiations, recent protocol events relevant to that agent, the full supported protocol action list, and valid next actions by active negotiation state.
+Agent decision context retrieval must return structured, JSON-friendly data for a single agent without mutating negotiations or appending protocol events. The context must include active load, capacity information when supplied, inbound requested negotiations, open negotiations, recent protocol events relevant to that agent, the full supported protocol action list, message budget information by active negotiation, and valid next actions by active negotiation state.
 
 Protected by:
 
 - `test_get_agent_decision_context_returns_structured_read_only_context`
 - `test_cli_returns_agent_decision_context`
 - `test_get_agent_decision_context_includes_capacity_when_limit_supplied`
+- `test_get_agent_decision_context_excludes_send_message_when_quota_used`
 
 ### INV-H-005: Graph Snapshots Are Structured And Read-Only
 
@@ -230,20 +242,22 @@ Protected by:
 
 ### INV-L-005: LLM Decision Contract Exposes JSON Schema
 
-The LLM decision contract must expose a machine-readable JSON Schema so providers that support structured output can be constrained by schema instead of prose alone.
+The LLM decision contract must expose machine-readable JSON Schema so providers that support structured output can be constrained by schema instead of prose alone. Experiment runners may derive stricter turn-specific schemas from valid next actions, scheduled actor, and focus negotiation.
 
 Protected by:
 
 - `test_llm_decision_json_schema_describes_supported_actions`
+- `test_turn_decision_json_schema_constrains_actions_actor_and_negotiation`
 - `test_context_only_package_outputs_provider_neutral_prompt_without_execution`
 
 ### INV-L-006: Dev Provider Adapters Use Schema-Constrained Output
 
-Dev-only provider adapters must use the LLM decision JSON Schema as the provider output constraint when the provider supports schema-constrained responses. Provider credentials must be read from environment variables, not stored in repository files.
+Dev-only provider adapters must use the LLM decision JSON Schema, or a stricter turn-specific schema, as the provider output constraint when the provider supports schema-constrained responses. Provider credentials must be read from environment variables, not stored in repository files.
 
 Protected by:
 
 - `test_openai_adapter_builds_schema_constrained_responses_request`
+- `test_openai_adapter_accepts_turn_specific_schema_override`
 - `test_openai_adapter_parses_schema_constrained_decision_text`
 - `test_openai_adapter_requires_api_key`
 
@@ -340,6 +354,8 @@ Protected by:
 | `test_reject_negotiation_service_closes_requested_negotiation` | INV-N-003, INV-H-001 |
 | `test_send_message_service_appends_message_event_for_open_negotiation` | INV-N-004, INV-H-001 |
 | `test_send_message_service_rejects_non_open_negotiation` | INV-N-004 |
+| `test_send_message_service_rejects_message_after_actor_quota_used` | INV-N-008 |
+| `test_message_quota_is_per_actor_per_negotiation` | INV-N-008 |
 | `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-H-001 |
 | `test_accept_match_service_requires_prior_proposal` | INV-N-005 |
 | `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-H-001 |
@@ -363,6 +379,8 @@ Protected by:
 | `test_get_agent_decision_context_returns_structured_read_only_context` | INV-H-004 |
 | `test_get_agent_decision_context_includes_capacity_when_limit_supplied` | INV-H-004 |
 | `test_get_agent_decision_context_includes_accept_match_after_match_proposal` | INV-H-004 |
+| `test_get_agent_decision_context_excludes_send_message_when_quota_used` | INV-H-004, INV-N-008 |
+| `test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used` | INV-H-004, INV-N-005, INV-N-008 |
 | `test_cli_returns_agent_decision_context` | INV-H-004, INV-CLI-001, INV-CLI-002 |
 | `test_build_graph_snapshot_returns_viewer_ready_nodes_and_edges` | INV-H-005 |
 | `test_sql_graph_snapshot_reader_reads_current_graph_state` | INV-H-005 |
@@ -404,11 +422,20 @@ Protected by:
 | `test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate` | INV-L-003, INV-L-004 |
 | `test_execute_send_message_against_existing_open_scenario_appends_message` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004, INV-N-004 |
 | `test_llm_decision_json_schema_describes_supported_actions` | INV-L-005 |
+| `test_turn_decision_json_schema_constrains_actions_actor_and_negotiation` | INV-L-005, INV-L-006 |
 | `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-L-005 |
 | `test_openai_adapter_builds_schema_constrained_responses_request` | INV-L-006 |
+| `test_openai_adapter_accepts_turn_specific_schema_override` | INV-L-006 |
 | `test_openai_adapter_parses_schema_constrained_decision_text` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_message_decision` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_reject_decision` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_propose_match_decision` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_accept_match_decision` | INV-L-006 |
 | `test_openai_adapter_requires_api_key` | INV-L-006 |
+| `test_strategy_catalog_exposes_role_specific_data` | INV-H-004, INV-L-004 |
+| `test_platform_constitution_prompt_is_protocol_first` | INV-L-001, INV-L-004 |
+| `test_pairwise_strategy_scenario_creates_open_negotiation_with_facts` | INV-G-001, INV-N-003, INV-H-004, INV-H-005 |
+| `test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadata` | INV-H-001, INV-H-003, INV-H-004, INV-L-001, INV-L-002, INV-L-004 |
+| `test_pairwise_strategy_runner_rejects_wrong_focus_decision` | INV-L-004 |
+| `test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions` | INV-H-004, INV-L-004 |
+| `test_pairwise_strategy_runner_can_reset_existing_sqlite_database` | INV-H-004 |

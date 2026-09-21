@@ -166,6 +166,97 @@ LLM_DECISION_JSON_SCHEMA: dict[str, object] = {
 }
 
 
+def build_turn_decision_json_schema(
+    *,
+    valid_actions: list[str],
+    actor_agent_id: str,
+    negotiation_id: str,
+) -> dict[str, object]:
+    """Build a turn-specific JSON Schema constrained to context-valid actions.
+
+    This schema is stricter than the global LLM decision contract: it constrains
+    action, actor, and negotiation to the scheduled turn so providers that
+    support schema-constrained output cannot emit globally valid but unavailable
+    protocol decisions.
+    """
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "actor_agent_id", "negotiation_id", "reason", "body", "proposal"],
+        "properties": {
+            "action": {"type": "string", "enum": valid_actions},
+            "actor_agent_id": {"type": "string", "enum": [actor_agent_id]},
+            "negotiation_id": {"type": "string", "enum": [negotiation_id]},
+            "reason": {"type": "string"},
+            "body": {"type": "string"},
+            "proposal": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["summary", "details"],
+                "properties": {
+                    "summary": {"type": "string"},
+                    "details": {"type": "string"},
+                },
+            },
+        },
+    }
+
+
+def _turn_action_schema(action: str, *, actor_agent_id: str, negotiation_id: str) -> dict[str, object]:
+    common_properties = {
+        "action": {"const": action},
+        "actor_agent_id": {"const": actor_agent_id},
+        "negotiation_id": {"const": negotiation_id},
+    }
+    if action in {"accept_negotiation", "accept_match"}:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id"],
+            "properties": common_properties,
+        }
+    if action == "reject_negotiation":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id"],
+            "properties": {**common_properties, "reason": {"type": "string"}},
+        }
+    if action == "send_message":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "body"],
+            "properties": {**common_properties, "body": {"type": "string"}},
+        }
+    if action == "propose_match":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "proposal"],
+            "properties": {**common_properties, "proposal": {"type": "object"}},
+        }
+    if action == "close_negotiation":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "negotiation_id", "actor_agent_id", "reason"],
+            "properties": {**common_properties, "reason": {"type": "string"}},
+        }
+    if action == "defer":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["action", "actor_agent_id", "reason"],
+            "properties": {
+                "action": {"const": action},
+                "actor_agent_id": {"const": actor_agent_id},
+                "reason": {"type": "string"},
+            },
+        }
+    raise ValueError(f"unsupported turn action: {action}")
+
+
 def parse_llm_decision(raw: dict[str, Any]) -> LlmDecision:
     """Parse and validate one LLM-facing decision signal.
 

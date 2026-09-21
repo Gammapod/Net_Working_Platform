@@ -397,6 +397,22 @@ def _market_turns(*, negotiation_ids: tuple[str, ...], rounds: int) -> list[Scri
                 )
                 continue
 
+            if round_number > 6:
+                turns.append(
+                    ScriptedTurn(
+                        round_number=round_number,
+                        actor_agent_id=actor_agent_id,
+                        negotiation_id=negotiation_id,
+                        decision={
+                            "action": "defer",
+                            "actor_agent_id": actor_agent_id,
+                            "reason": "Scripted market policy exhausted the free-form message budget for this actor.",
+                        },
+                        rationale="Scripted market policy defers after the per-actor message budget is exhausted.",
+                    )
+                )
+                continue
+
             turns.append(
                 ScriptedTurn(
                     round_number=round_number,

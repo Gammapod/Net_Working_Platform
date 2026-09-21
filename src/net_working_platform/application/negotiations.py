@@ -13,6 +13,7 @@ from net_working_platform.domain.model import (
     NegotiationState,
     ProtocolEvent,
     ProtocolEventType,
+    ProtocolViolation,
     can_open_negotiation,
     ensure_negotiation_actor_is_participant,
     ensure_can_request_negotiation,
@@ -29,6 +30,7 @@ SUPPORTED_PROTOCOL_ACTIONS = [
     "close_negotiation",
     "defer",
 ]
+MAX_MESSAGES_PER_AGENT_PER_NEGOTIATION = 3
 
 
 class AgentConnectionRepository(Protocol):
@@ -151,6 +153,9 @@ class NegotiationService:
         negotiation = self._negotiations.get(negotiation_id)
         ensure_negotiation_actor_is_participant(negotiation, actor_agent_id)
         next_negotiation_state(negotiation.state, ProtocolEventType.MESSAGE)
+        history = self._events.list_for_negotiation(negotiation_id)
+        if _message_count_for_actor(history, actor_agent_id) >= MAX_MESSAGES_PER_AGENT_PER_NEGOTIATION:
+            raise ProtocolViolation("message quota exhausted for actor in negotiation")
         self._events.append(
             ProtocolEvent(
                 type=ProtocolEventType.MESSAGE,
@@ -248,7 +253,12 @@ class NegotiationService:
                 negotiation.id: _valid_next_actions_for_negotiation(
                     negotiation,
                     histories[negotiation.id],
+                    agent_id,
                 )
+                for negotiation in active_negotiations
+            },
+            "message_budget_by_negotiation": {
+                negotiation.id: _message_budget_for_negotiation(histories[negotiation.id], agent_id)
                 for negotiation in active_negotiations
             },
             "inbound_requested_negotiations": [
@@ -292,15 +302,41 @@ def _event_to_context_record(event: ProtocolEvent) -> dict[str, object]:
 def _valid_next_actions_for_negotiation(
     negotiation: Negotiation,
     history: list[ProtocolEvent],
+    actor_agent_id: str,
 ) -> list[str]:
     if negotiation.state == NegotiationState.REQUESTED:
-        return ["accept_negotiation", "reject_negotiation", "defer"]
+        return ["accept_negotiation", "reject_negotiation"]
 
     if negotiation.state == NegotiationState.OPEN:
-        actions = ["send_message", "propose_match"]
-        if any(event.type == ProtocolEventType.MATCH_PROPOSED for event in history):
+        has_match_proposal = any(event.type == ProtocolEventType.MATCH_PROPOSED for event in history)
+        has_message_budget = _message_count_for_actor(history, actor_agent_id) < MAX_MESSAGES_PER_AGENT_PER_NEGOTIATION
+        if has_match_proposal and not has_message_budget:
+            return ["accept_match", "close_negotiation"]
+
+        actions = []
+        if has_message_budget:
+            actions.append("send_message")
+        actions.append("propose_match")
+        if has_match_proposal:
             actions.append("accept_match")
-        actions.extend(["close_negotiation", "defer"])
+        actions.append("close_negotiation")
         return actions
 
-    return ["defer"]
+    return []
+
+
+def _message_budget_for_negotiation(history: list[ProtocolEvent], actor_agent_id: str) -> dict[str, int]:
+    messages_sent = _message_count_for_actor(history, actor_agent_id)
+    return {
+        "max_messages_per_agent": MAX_MESSAGES_PER_AGENT_PER_NEGOTIATION,
+        "messages_sent_by_agent": messages_sent,
+        "messages_remaining_for_agent": max(MAX_MESSAGES_PER_AGENT_PER_NEGOTIATION - messages_sent, 0),
+    }
+
+
+def _message_count_for_actor(history: list[ProtocolEvent], actor_agent_id: str) -> int:
+    return sum(
+        1
+        for event in history
+        if event.type == ProtocolEventType.MESSAGE and event.actor_agent_id == actor_agent_id
+    )

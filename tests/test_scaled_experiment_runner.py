@@ -86,15 +86,20 @@ def test_scaled_experiment_runner_observes_20_client_10_principal_market_for_10_
     }
     assert summary["rounds_observed"] == 10
     assert summary["turns_executed"] == 400
-    assert summary["metrics"]["messages_sent"] == 390
+    assert summary["metrics"]["messages_sent"] == 240
     assert summary["metrics"]["match_proposals"] == 10
     assert summary["metrics"]["matches_accepted"] == 0
     assert summary["metrics"]["negotiations_closed"] == 0
+    assert summary["metrics"]["deferrals"] == 150
     assert summary["metrics"]["invalid_attempts"] == 0
     assert summary["metrics"]["focus_mismatch_attempts"] == 0
     assert summary["metrics"]["initial_negotiation_states"] == {"open": 40}
     assert summary["metrics"]["final_negotiation_states"] == {"open": 40}
-    assert summary["metrics"]["executed_decisions_by_action"] == {"propose_match": 10, "send_message": 390}
+    assert summary["metrics"]["executed_decisions_by_action"] == {
+        "defer": 150,
+        "propose_match": 10,
+        "send_message": 240,
+    }
     assert len(transcript) == 400
     assert {record["round"] for record in transcript} == set(range(1, 11))
     assert {record["actor_agent_id"] for record in transcript if record["actor_agent_id"].startswith("client_agent_")} == {

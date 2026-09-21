@@ -50,6 +50,7 @@ def request_openai_decision(
     prompt: str,
     api_key: str | None = None,
     model: str = "gpt-4o-mini",
+    json_schema: dict[str, object] | None = None,
     opener: Callable[[urllib.request.Request, int], object] = urllib.request.urlopen,
     timeout: int = 120,
 ) -> LlmDecision:
@@ -71,7 +72,7 @@ def request_openai_decision(
             "format": {
                 "type": "json_schema",
                 "name": "llm_decision",
-                "schema": OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA,
+                "schema": json_schema or OPENAI_EXECUTABLE_DECISION_JSON_SCHEMA,
                 "strict": True,
             }
         },

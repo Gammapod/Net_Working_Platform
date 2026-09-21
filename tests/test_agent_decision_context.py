@@ -119,8 +119,20 @@ def test_get_agent_decision_context_returns_structured_read_only_context() -> No
             "defer",
         ],
         "valid_next_actions_by_negotiation": {
-            "requested_in": ["accept_negotiation", "reject_negotiation", "defer"],
-            "open_out": ["send_message", "propose_match", "close_negotiation", "defer"],
+            "requested_in": ["accept_negotiation", "reject_negotiation"],
+            "open_out": ["send_message", "propose_match", "close_negotiation"],
+        },
+        "message_budget_by_negotiation": {
+            "requested_in": {
+                "max_messages_per_agent": 3,
+                "messages_sent_by_agent": 0,
+                "messages_remaining_for_agent": 3,
+            },
+            "open_out": {
+                "max_messages_per_agent": 3,
+                "messages_sent_by_agent": 0,
+                "messages_remaining_for_agent": 3,
+            },
         },
         "inbound_requested_negotiations": [
             {
@@ -220,6 +232,85 @@ def test_get_agent_decision_context_includes_accept_match_after_match_proposal()
             "propose_match",
             "accept_match",
             "close_negotiation",
-            "defer",
         ]
+    }
+
+
+def test_get_agent_decision_context_excludes_send_message_when_quota_used() -> None:
+    """Protects INV-H-004 and INV-N-008."""
+    negotiations = InMemoryNegotiations(
+        [Negotiation("open_out", "agent_2", "agent_3", NegotiationState.OPEN, {})]
+    )
+    events = InMemoryEvents(
+        [
+            ProtocolEvent(
+                type=ProtocolEventType.MESSAGE,
+                actor_agent_id="agent_2",
+                negotiation_id="open_out",
+                occurred_at=datetime(2026, 1, 7, 12, index, tzinfo=timezone.utc),
+                payload={"body": f"message {index}"},
+            )
+            for index in range(3)
+        ]
+    )
+    service = NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=negotiations,
+        events=events,
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 7, tzinfo=timezone.utc),
+    )
+
+    context = service.get_agent_decision_context(agent_id="agent_2")
+
+    assert context["valid_next_actions_by_negotiation"] == {
+        "open_out": ["propose_match", "close_negotiation"]
+    }
+    assert context["message_budget_by_negotiation"] == {
+        "open_out": {
+            "max_messages_per_agent": 3,
+            "messages_sent_by_agent": 3,
+            "messages_remaining_for_agent": 0,
+        }
+    }
+
+
+def test_get_agent_decision_context_forces_accept_or_close_after_proposal_when_quota_used() -> None:
+    """Protects INV-H-004, INV-N-005, and INV-N-008."""
+    negotiations = InMemoryNegotiations(
+        [Negotiation("open_out", "agent_2", "agent_3", NegotiationState.OPEN, {})]
+    )
+    events = InMemoryEvents(
+        [
+            *[
+                ProtocolEvent(
+                    type=ProtocolEventType.MESSAGE,
+                    actor_agent_id="agent_2",
+                    negotiation_id="open_out",
+                    occurred_at=datetime(2026, 1, 7, 12, index, tzinfo=timezone.utc),
+                    payload={"body": f"message {index}"},
+                )
+                for index in range(3)
+            ],
+            ProtocolEvent(
+                type=ProtocolEventType.MATCH_PROPOSED,
+                actor_agent_id="agent_3",
+                negotiation_id="open_out",
+                occurred_at=datetime(2026, 1, 7, 13, 0, tzinfo=timezone.utc),
+                payload={"proposal": {"summary": "possible match"}},
+            ),
+        ]
+    )
+    service = NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=negotiations,
+        events=events,
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 7, tzinfo=timezone.utc),
+    )
+
+    context = service.get_agent_decision_context(agent_id="agent_2")
+
+    assert context["valid_next_actions_by_negotiation"] == {
+        "open_out": ["accept_match", "close_negotiation"]
     }

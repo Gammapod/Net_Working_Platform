@@ -2,6 +2,8 @@
 
 This plan describes the next experimentation layer after scaled protocol runs. The goal is not to find one best market strategy. The goal is to verify that the platform can facilitate many user-defined strategies and that agents can pursue different goals through the same protocol.
 
+Experiment results and decisions are recorded in [Game-Theory Experiment Log](game-theory-experiment-log.md).
+
 ## Agent Instruction Layers
 
 Each agent decision should be shaped by three layers.
@@ -22,6 +24,8 @@ Each agent decision should be shaped by three layers.
    - The platform should support these differences without embedding one central match-quality function.
 
 ## Example Strategies
+
+The initial representative strategy catalog is maintained in [Agent Strategy Catalog](agent-strategy-catalog.md). The catalog defines concrete strategy IDs, expected behavior, failure modes, and a first pairwise matrix.
 
 Client-side examples:
 
@@ -100,10 +104,30 @@ Measure differences in:
 
 ## Near-Term Implementation Sequence
 
-1. Enforce scheduled actor and negotiation focus in experiment transcripts.
-2. Add market outcome metrics to scaled summaries.
-3. Introduce platform constitution prompt text as a reusable prompt layer.
-4. Introduce strategy definitions as data, not hardcoded prompt fragments.
-5. Build pairwise strategy scenario runner.
+1. Enforce scheduled actor and negotiation focus in experiment transcripts. Initial support exists in scaled and pairwise runners.
+2. Add market outcome metrics to scaled summaries. Initial scaled-market summary metrics exist.
+3. Introduce platform constitution prompt text as a reusable prompt layer. Implemented in `net_working_platform.experiments.prompts`.
+4. Introduce strategy definitions as data, not hardcoded prompt fragments. Implemented in `net_working_platform.experiments.strategies`.
+5. Build pairwise strategy scenario runner. Initial runner exists at `scripts.dev.run_pairwise_strategy_experiment`.
 6. Build opportunity discovery scenario runner.
 7. Re-run open-market experiments with mixed strategies only after pairwise behavior is understandable.
+
+## Pairwise Runner Baseline
+
+The pairwise strategy runner starts one open negotiation between a client-side representative agent and a principal-side representative agent, injects selected strategy definitions into the prompt package, and records transcript plus summary artifacts. `gpt-4o-mini` remains the baseline live-provider model unless overridden.
+
+The core protocol limits free-form messages to three per actor per negotiation. After a scheduled actor exhausts that budget, `send_message` disappears from that actor's valid next actions and the experiment must use another protocol action. If a match has already been proposed and the actor has no message bandwidth left, the valid next actions narrow to `accept_match` or `close_negotiation`. `defer` remains a non-mutating LLM contract fallback, but it is not a normal negotiation response when protocol actions are available.
+
+For live provider runs, the pairwise runner derives a turn-specific structured-output schema from the scheduled actor, focus negotiation, and current valid next actions. This prevents the model from emitting unavailable actions such as `send_message` after quota exhaustion.
+
+Example:
+
+```powershell
+python -m scripts.dev.run_pairwise_strategy_experiment `
+  --db-url sqlite+pysqlite:///runs/pairwise-fast-minimums.db `
+  --output-dir runs/pairwise-fast-minimums `
+  --client-strategy CLIENT-FAST-ANY `
+  --principal-strategy PRINCIPAL-FAST-MINIMUMS `
+  --turns 6 `
+  --reset-db
+```
