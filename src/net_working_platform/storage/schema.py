@@ -62,6 +62,23 @@ representation_edges = Table(
 Index("representation_edges_represented_idx", representation_edges.c.represented_node_id)
 Index("representation_edges_agent_state_idx", representation_edges.c.agent_id, representation_edges.c.state)
 
+weak_discovery_edges = Table(
+    "weak_discovery_edges",
+    metadata,
+    Column("from_agent_id", String, ForeignKey("nodes.id"), primary_key=True),
+    Column("to_agent_id", String, ForeignKey("nodes.id"), primary_key=True),
+    Column("field", String, primary_key=True),
+    Column("state", String, nullable=False),
+    Column("rationale", json_payload, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("state in ('available', 'inactive')", name="weak_discovery_edges_state_check"),
+    CheckConstraint("from_agent_id <> to_agent_id", name="weak_discovery_edges_no_self_check"),
+)
+Index("weak_discovery_edges_from_state_idx", weak_discovery_edges.c.from_agent_id, weak_discovery_edges.c.state)
+Index("weak_discovery_edges_to_state_idx", weak_discovery_edges.c.to_agent_id, weak_discovery_edges.c.state)
+Index("weak_discovery_edges_field_idx", weak_discovery_edges.c.field)
+
 negotiations = Table(
     "negotiations",
     metadata,
@@ -95,7 +112,9 @@ protocol_events = Table(
         "'fact_disclosed', "
         "'match_proposed', "
         "'match_accepted', "
-        "'close_negotiation'"
+        "'close_negotiation', "
+        "'weak_connection_probed', "
+        "'contact_requested'"
         ")",
         name="protocol_events_type_check",
     ),

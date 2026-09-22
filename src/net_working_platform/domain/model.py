@@ -22,6 +22,11 @@ class RepresentationState(StrEnum):
     INACTIVE = "inactive"
 
 
+class WeakDiscoveryState(StrEnum):
+    AVAILABLE = "available"
+    INACTIVE = "inactive"
+
+
 class NegotiationState(StrEnum):
     REQUESTED = "requested"
     OPEN = "open"
@@ -43,6 +48,8 @@ class ProtocolEventType(StrEnum):
     MATCH_PROPOSED = "match_proposed"
     MATCH_ACCEPTED = "match_accepted"
     CLOSE_NEGOTIATION = "close_negotiation"
+    WEAK_CONNECTION_PROBED = "weak_connection_probed"
+    CONTACT_REQUESTED = "contact_requested"
 
 
 class FactKind(StrEnum):
@@ -71,6 +78,16 @@ class RepresentationEdge:
     represented_node_type: NodeType
     state: RepresentationState
     edge_kind: str = "representation"
+
+
+@dataclass(frozen=True)
+class WeakDiscoveryEdge:
+    from_agent_id: str
+    to_agent_id: str
+    field: str
+    state: WeakDiscoveryState
+    rationale: dict[str, object]
+    edge_kind: str = "weak_discovery"
 
 
 @dataclass(frozen=True)

@@ -7,6 +7,7 @@ from net_working_platform.storage.schema import (
     nodes,
     protocol_events,
     representation_edges,
+    weak_discovery_edges,
 )
 
 
@@ -15,6 +16,7 @@ def test_storage_schema_declares_mvp_tables() -> None:
         "nodes",
         "agent_connections",
         "representation_edges",
+        "weak_discovery_edges",
         "negotiations",
         "protocol_events",
     }
@@ -34,6 +36,13 @@ def test_core_table_columns_match_repository_contracts() -> None:
         "represented_node_id",
         "represented_node_type",
         "state",
+    }
+    assert {column.name for column in weak_discovery_edges.columns} >= {
+        "from_agent_id",
+        "to_agent_id",
+        "field",
+        "state",
+        "rationale",
     }
     assert {column.name for column in negotiations.columns} >= {
         "id",
@@ -68,3 +77,7 @@ def test_storage_schema_uses_check_constraints_for_domain_enums() -> None:
     assert "proposal_pending" in check_sql
     assert "matched" in check_sql
     assert "closed" in check_sql
+    assert "available" in check_sql
+    assert "inactive" in check_sql
+    assert "weak_connection_probed" in check_sql
+    assert "contact_requested" in check_sql

@@ -422,3 +422,292 @@ Follow-ups:
 
 - If proposal churn remains undesirable, consider tracking proposal author or proposal revision count rather than forbidding all later proposals after clarification.
 - Consider adding explicit `reject_match` separately from `close_negotiation` only if later UX needs to distinguish rejection from broader negotiation closure.
+
+## 2026-09-21: Weak Discovery Live LLM Smoke Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through a dev-only weak discovery runner.
+
+Scenario/matrix: Five-agent weak discovery scenario:
+
+- `marketing_client_agent_1` represents a client seeking marketing work.
+- `marketing_client_agent_2` represents a client seeking marketing work.
+- `programming_client_agent` represents a client seeking programming work.
+- `marketing_principal_agent` represents a principal offering marketing work.
+- `programming_principal_agent` represents a principal offering programming work.
+
+Protocol/harness state:
+
+- Weak discovery edges are field-scoped and do not authorize negotiation directly.
+- Client agents can choose `probe_weak_connection`, `request_contact`, or `defer` from a turn-specific schema.
+- Provider schema constrains targets to currently discoverable same-field agents.
+- Weak discovery metadata includes the target represented-party type so client agents can prefer same-field principals over peer client agents.
+
+Initial live run observation:
+
+- Before target represented-party type was included in weak discovery metadata, both marketing client agents chose to connect to each other rather than the marketing principal. This showed that field scoping was respected, but opportunity relevance was under-specified.
+
+Result after adding target represented-party metadata:
+
+| Actor | Chosen Action | Target | Result |
+| --- | --- | --- | --- |
+| `marketing_client_agent_1` | `request_contact` | `marketing_principal_agent` | active connection created |
+| `marketing_client_agent_2` | `request_contact` | `marketing_principal_agent` | active connection created |
+| `programming_client_agent` | `request_contact` | `programming_principal_agent` | active connection created |
+
+Aggregate summary:
+
+- Turns: 3
+- Valid decisions: 3
+- Invalid decisions: 0
+- Connections created: 3
+- Events: 3 `contact_requested`
+
+Observed result:
+
+- The model respected field-scoped discovery constraints.
+- With represented-party type metadata, client-side agents selected same-field principal agents rather than same-field peer client agents.
+- The live run validates the deterministic weak discovery slice as a viable starting point for graph formation experiments.
+
+Follow-ups:
+
+- Add a multi-turn discovery-to-negotiation runner where newly created active connections can immediately open negotiation requests.
+- Add connection request response semantics before treating connection formation as a mutual relationship rather than a directed active edge.
+- Consider adding probe responses so agents can ask before connecting instead of always jumping directly to `request_contact`.
+
+## 2026-09-21: Discovery-To-Negotiation Lifecycle Live Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through dev-only discovery and negotiation runners.
+
+Scenario/matrix: Same five-agent weak discovery scenario as the prior weak discovery smoke test.
+
+Protocol/harness state:
+
+- Client agents first choose a weak discovery action from same-field discoverable agents.
+- When a connection is formed, the harness opens and accepts a negotiation over that active connection.
+- Each connected client/principal pair runs two negotiation cycles to test whether a later negotiation can be opened after an earlier one reaches terminal state.
+- Negotiation turns use the existing turn-specific provider schema, message quota, and `proposal_pending` state.
+
+Important limitation:
+
+- Opening and accepting negotiation requests are currently harness-driven after connection formation. The LLM chooses discovery actions and negotiation actions, but it does not yet emit a first-class `request_negotiation` discovery/graph action.
+
+Result summary:
+
+| Metric | Count |
+| --- | ---: |
+| Connections created | 3 |
+| Negotiations created | 6 |
+| Matched negotiations | 4 |
+| Closed negotiations | 2 |
+| Open negotiations | 0 |
+| Errors | 0 |
+| Skipped terminal turns | 38 |
+
+Aggregate decisions/events:
+
+- `request_contact`: 3
+- `propose_match`: 4
+- `accept_match`: 4
+- `close_negotiation`: 2
+- `contact_requested` events: 3
+- `open_negotiation_request` events: 6
+- `open_negotiation_response` events: 6
+- `match_proposed` events: 4
+- `match_accepted` events: 4
+- `close_negotiation` events: 2
+
+Observed result:
+
+- Agents formed field-appropriate connections.
+- All six harness-opened negotiations reached terminal state: four matched and two closed.
+- The harness successfully opened a second negotiation after terminal completion of the first negotiation over the same active connection.
+- The high skipped-turn count is expected because each negotiation cycle reserves up to eight turns but often reaches terminal state early.
+
+Follow-ups:
+
+- Add `request_negotiation` as an LLM-emittable action once an active connection exists, so opening negotiations is agent-driven rather than harness-driven.
+- Add explicit connection acceptance/rejection semantics if active connections should be mutual rather than immediately created by request.
+- Add a combined decision context that lets an agent choose among discovery, connection management, and negotiation actions in one scheduler.
+
+## 2026-09-21: Contact And Agent-Driven Negotiation Request Lifecycle
+
+Model or decision source: OpenAI `gpt-4o-mini` through dev-only discovery and negotiation lifecycle runner.
+
+Protocol/harness state:
+
+- Agent-agent relationships are protocol-facing `contacts`; contacts are directional, not mutual.
+- Contact creation is limited to three active outgoing contacts per agent.
+- Active negotiations are limited to two per agent; active means `requested`, `open`, or `proposal_pending`.
+- Client agents choose `request_contact` through weak discovery.
+- Once a contact exists, the client-side LLM emits `request_negotiation`.
+- Principal-side LLM then emits `accept_negotiation` before normal negotiation turns begin.
+
+Result summary:
+
+| Metric | Count |
+| --- | ---: |
+| Contacts created | 3 |
+| Negotiation requests emitted | 6 |
+| Negotiation accepts emitted | 6 |
+| Negotiations created | 6 |
+| Matched negotiations | 5 |
+| Closed negotiations | 1 |
+| Open negotiations | 0 |
+| Errors | 0 |
+
+Aggregate decisions/events:
+
+- `request_contact`: 3
+- `request_negotiation`: 6
+- `accept_negotiation`: 6
+- `propose_match`: 5
+- `accept_match`: 5
+- `close_negotiation`: 1
+- `contact_requested` events: 3
+- `open_negotiation_request` events: 6
+- `open_negotiation_response` events: 6
+
+Observed result:
+
+- Agents successfully formed directional contacts, requested negotiations, accepted inbound negotiation requests, reached terminal outcomes, and opened second negotiations after prior terminal outcomes.
+- The small limits did not block this scenario because negotiations terminalized before the second cycle created persistent active-load pressure.
+
+Follow-ups:
+
+- Move from phase-specific harnessing to a unified scheduler/context where agents choose among discovery, contact, request-negotiation, response, and negotiation actions.
+- Add tests for the three-contact limit and LLM-facing `request_negotiation` once promoted out of the dev runner.
+
+## 2026-09-21: Unified Agent Lifecycle 10-Agent Run
+
+Model or decision source: OpenAI `gpt-4o-mini` through `scripts.dev.run_unified_agent_lifecycle_experiment`.
+
+Scenario/matrix: 10 agents:
+
+- 3 marketing client agents
+- 2 programming client agents
+- 2 marketing principal agents
+- 2 programming principal agents
+- 1 marketing connector/principal-like agent
+
+Protocol/harness state:
+
+- One unified scheduler rotates through all agents.
+- Each scheduled agent receives a combined context including weak discovery, directional contacts, contact slots, active negotiations, negotiation slots, inbound requests, valid negotiation actions, and recent negotiation context.
+- Agent can choose among discovery/contact actions, `request_negotiation`, negotiation request responses, and normal negotiation actions.
+- Contact limit: 3 active outgoing contacts.
+- Active negotiation limit: 2 active negotiations per agent.
+
+### 30-turn run
+
+Initial 30-turn result:
+
+| Metric | Count |
+| --- | ---: |
+| Contacts created | 10 |
+| Negotiations created | 9 |
+| Requested negotiations | 2 |
+| Open negotiations | 7 |
+| Errors | 0 |
+
+Decisions:
+
+- `request_contact`: 10
+- `request_negotiation`: 9
+- `accept_negotiation`: 7
+- `send_message`: 4
+
+Observed result:
+
+- The unified scheduler successfully moved beyond contact formation into agent-driven negotiation requests and acceptances.
+- 30 turns was not enough for terminal negotiation outcomes; most negotiations were still `open` or `requested`.
+
+### 60-turn run
+
+Extended 60-turn result:
+
+| Metric | Count |
+| --- | ---: |
+| Contacts created | 10 |
+| Negotiations created | 10 |
+| Open negotiations | 4 |
+| Proposal pending negotiations | 6 |
+| Matched negotiations | 0 |
+| Closed negotiations | 0 |
+| Errors | 1 |
+
+Decisions:
+
+- `request_contact`: 10
+- `request_negotiation`: 10
+- `accept_negotiation`: 10
+- `send_message`: 23
+- `propose_match`: 6
+- `accept_match`: 1
+
+Observed result:
+
+- The larger run successfully exercised the full unified action space through contact creation, negotiation request, negotiation acceptance, messages, and proposals.
+- It did not reach terminal outcomes within 60 turns. Six negotiations ended in `proposal_pending`, and four remained `open`.
+- One invalid/protocol error occurred when the model emitted `accept_match` while choosing a negotiation that did not have a pending proposal. This exposes a schema weakness in the unified runner: action availability is currently unioned across all active negotiations instead of being tied to a selected negotiation/action pair.
+
+Decision/change:
+
+- The unified scheduler is a useful calibration harness, but it needs state-constrained action/negotiation pairing before we treat its live outcomes as comparable to the pairwise runs.
+
+Follow-ups:
+
+- Change the unified schema so selected `action` and `negotiation_id` are coupled, likely by scheduling or selecting a focus negotiation before constraining actions.
+- Consider ending a negotiation turn as soon as a proposal is pending by scheduling the proposal recipient sooner, rather than waiting for round-robin order across all 10 agents.
+- Track contact utility: contacts that lead to negotiation request, accepted negotiation, proposal, match, or close.
+
+### Follow-up: focused negotiation schema
+
+Protocol/harness change:
+
+- The unified runner now selects at most one focus negotiation per scheduled turn.
+- If a focus negotiation exists, the provider schema exposes only that negotiation's valid actions and constrains `negotiation_id` to that negotiation.
+- Discovery/contact/request-negotiation actions are exposed only when no current focus negotiation requires attention.
+
+60-turn result after fix:
+
+| Metric | Count |
+| --- | ---: |
+| Contacts created | 10 |
+| Negotiations created | 8 |
+| Open negotiations | 5 |
+| Proposal pending negotiations | 3 |
+| Errors | 0 |
+
+100-turn result after fix:
+
+| Metric | Count |
+| --- | ---: |
+| Contacts created | 10 |
+| Negotiations created | 17 |
+| Matched negotiations | 5 |
+| Closed negotiations | 4 |
+| Open negotiations | 7 |
+| Requested negotiations | 1 |
+| Errors | 0 |
+
+100-turn aggregate decisions:
+
+- `request_contact`: 10
+- `request_negotiation`: 17
+- `accept_negotiation`: 15
+- `reject_negotiation`: 1
+- `send_message`: 41
+- `propose_match`: 8
+- `accept_match`: 5
+- `close_negotiation`: 3
+
+Observed result:
+
+- The action/negotiation mismatch error was eliminated.
+- Longer unified scheduling now reaches terminal outcomes while continuing to form contacts and open new negotiations.
+- Some negotiations remain open/requested at 100 turns, so scheduler priority and turn allocation now matter more than schema validity.
+
+Follow-ups:
+
+- Consider scheduling agents with pending proposals or inbound requests ahead of ordinary round-robin turns.
+- Consider stricter pressure after message budget exhaustion in the unified runner, similar to the pairwise runner's terminal pressure.

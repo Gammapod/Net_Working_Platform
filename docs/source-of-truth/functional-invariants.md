@@ -4,7 +4,7 @@ This is the source of truth for MVP protocol behavior. Every automated test that
 
 ## Scope
 
-The MVP is a graph-backed communication platform for representative agents. Agents represent clients and principals, maintain graph edges, and run structured negotiations over established agent-agent connections.
+The MVP is a graph-backed communication platform for representative agents. Agents represent clients and principals, discover same-field weak agent opportunities, form active agent-agent edges, and run structured negotiations over established agent-agent connections.
 
 ## Entity Invariants
 
@@ -65,6 +65,38 @@ Current edge state may be stored for retrieval, but state changes must also be r
 Protected by:
 
 - Planned: `test_edge_state_change_appends_event`
+
+## Discovery Invariants
+
+### INV-D-001: Weak Discovery Is Field-Scoped
+
+Weak discovery edges expose limited agent-agent discoverability by field. An agent may list or probe only currently available weak discovery edges from itself to another agent in the requested field. Weak discovery does not expose unrelated fields and does not by itself authorize negotiation.
+
+Protected by:
+
+- `test_list_discoverable_agents_filters_weak_edges_by_field`
+- `test_probe_weak_connection_requires_matching_weak_edge`
+- `test_weak_discovery_scenario_allows_same_field_probe_and_connection`
+- `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection`
+
+### INV-D-002: Weak Discovery Gates New Contacts
+
+An agent may form a new active directional contact from weak discovery only when a matching available weak discovery edge exists. Cross-field contact attempts without a weak edge are rejected and must not create active agent-agent communication edges.
+
+Protected by:
+
+- `test_probe_weak_connection_requires_matching_weak_edge`
+- `test_request_contact_requires_matching_weak_edge_and_creates_active_connection`
+- `test_weak_discovery_scenario_allows_same_field_probe_and_connection`
+- `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection`
+
+### INV-D-003: Active Contacts Are Limited
+
+An agent may keep at most three active outgoing contacts. The contact is directional; another agent must independently add, ignore, or eventually block/mark low-confidence.
+
+Protected by:
+
+- `test_request_contact_rejects_actor_over_contact_limit`
 
 ## Negotiation Protocol Invariants
 
@@ -397,6 +429,16 @@ Protected by:
 | `test_open_negotiation_capacity_allows_below_limit` | INV-C-001 |
 | `test_open_negotiation_capacity_rejects_at_limit` | INV-C-001 |
 | `test_request_negotiation_service_requires_active_connection` | INV-G-001 |
+| `test_list_discoverable_agents_filters_weak_edges_by_field` | INV-D-001 |
+| `test_probe_weak_connection_requires_matching_weak_edge` | INV-D-001, INV-D-002 |
+| `test_request_contact_requires_matching_weak_edge_and_creates_active_connection` | INV-D-002, INV-G-001 |
+| `test_request_contact_rejects_actor_over_contact_limit` | INV-D-003 |
+| `test_weak_discovery_scenario_allows_same_field_probe_and_connection` | INV-D-001, INV-D-002, INV-G-001 |
+| `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection` | INV-D-001, INV-D-002 |
+| `test_parse_discovery_request_contact_decision` | INV-L-001, INV-L-002, INV-D-002 |
+| `test_parse_discovery_decision_rejects_unknown_action` | INV-L-001 |
+| `test_discovery_turn_schema_constrains_targets_and_fields` | INV-L-005, INV-L-006, INV-D-001 |
+| `test_execute_discovery_decision_uses_service` | INV-L-004, INV-D-002 |
 | `test_request_negotiation_service_creates_record_and_event` | INV-N-001, INV-N-002, INV-H-001 |
 | `test_request_negotiation_service_rejects_when_actor_at_capacity` | INV-C-001, INV-C-002 |
 | `test_accept_negotiation_service_opens_requested_negotiation` | INV-N-003, INV-H-001 |

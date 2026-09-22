@@ -16,11 +16,14 @@ from net_working_platform.domain.model import (
     RepresentationState,
     RepresentedPartyFact,
     RepresentedPartyProfile,
+    WeakDiscoveryEdge,
+    WeakDiscoveryState,
 )
 from net_working_platform.storage.repositories import (
     SqlAgentConnectionRepository,
     SqlNodeRepository,
     SqlRepresentationEdgeRepository,
+    SqlWeakDiscoveryEdgeRepository,
 )
 from net_working_platform.storage.schema import metadata
 from net_working_platform.storage.services import create_sql_negotiation_service
@@ -87,6 +90,89 @@ class PairwiseStrategyScenario:
     client_facts: dict[str, object]
     principal_facts: dict[str, object]
     represented_party_profiles_by_agent: dict[str, list[RepresentedPartyProfile]]
+
+
+@dataclass(frozen=True)
+class WeakDiscoveryScenario:
+    db_url: str
+    marketing_client_agent_ids: tuple[str, str]
+    programming_client_agent_id: str
+    marketing_principal_agent_id: str
+    programming_principal_agent_id: str
+    agent_fields: dict[str, str]
+
+
+def seed_weak_discovery_scenario(db_url: str) -> WeakDiscoveryScenario:
+    """Create a five-agent weak discovery scenario by field.
+
+    Two client agents and one principal agent are in marketing; one client agent
+    and one principal agent are in programming. Weak discovery edges are created
+    only between agents with the same field, so marketing agents can probe and
+    connect with marketing agents but not programming agents.
+    """
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    agent_fields = {
+        "marketing_client_agent_1": "marketing",
+        "marketing_client_agent_2": "marketing",
+        "programming_client_agent": "programming",
+        "marketing_principal_agent": "marketing",
+        "programming_principal_agent": "programming",
+    }
+    represented_nodes = {
+        "marketing_client_agent_1": ("marketing_client_1", NodeType.CLIENT, "Marketing Client 1"),
+        "marketing_client_agent_2": ("marketing_client_2", NodeType.CLIENT, "Marketing Client 2"),
+        "programming_client_agent": ("programming_client", NodeType.CLIENT, "Programming Client"),
+        "marketing_principal_agent": ("marketing_principal", NodeType.PRINCIPAL, "Marketing Principal"),
+        "programming_principal_agent": ("programming_principal", NodeType.PRINCIPAL, "Programming Principal"),
+    }
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+        weak_edges = SqlWeakDiscoveryEdgeRepository(connection)
+
+        for agent_id, field in agent_fields.items():
+            nodes.add(Node(id=agent_id, type=NodeType.AGENT), display_name=agent_id.replace("_", " ").title())
+            represented_id, represented_type, display_name = represented_nodes[agent_id]
+            nodes.add(Node(id=represented_id, type=represented_type), display_name=display_name)
+            representation_edges.add(
+                RepresentationEdge(
+                    agent_id=agent_id,
+                    represented_node_id=represented_id,
+                    represented_node_type=represented_type,
+                    state=RepresentationState.ACTIVE,
+                )
+            )
+
+        for from_agent_id, from_field in agent_fields.items():
+            for to_agent_id, to_field in agent_fields.items():
+                if from_agent_id == to_agent_id or from_field != to_field:
+                    continue
+                weak_edges.add(
+                    WeakDiscoveryEdge(
+                        from_agent_id=from_agent_id,
+                        to_agent_id=to_agent_id,
+                        field=from_field,
+                        state=WeakDiscoveryState.AVAILABLE,
+                        rationale={
+                            "reason": "same_field",
+                            "field": from_field,
+                            "target_represented_type": represented_nodes[to_agent_id][1].value,
+                            "target_represented_id": represented_nodes[to_agent_id][0],
+                        },
+                    )
+                )
+
+    return WeakDiscoveryScenario(
+        db_url=db_url,
+        marketing_client_agent_ids=("marketing_client_agent_1", "marketing_client_agent_2"),
+        programming_client_agent_id="programming_client_agent",
+        marketing_principal_agent_id="marketing_principal_agent",
+        programming_principal_agent_id="programming_principal_agent",
+        agent_fields=agent_fields,
+    )
 
 
 def seed_inbound_request_scenario(

@@ -58,6 +58,24 @@ def upgrade() -> None:
     op.create_index("representation_edges_agent_state_idx", "representation_edges", ["agent_id", "state"])
     op.create_index("representation_edges_represented_idx", "representation_edges", ["represented_node_id"])
     op.create_table(
+        "weak_discovery_edges",
+        sa.Column("from_agent_id", sa.String(), nullable=False),
+        sa.Column("to_agent_id", sa.String(), nullable=False),
+        sa.Column("field", sa.String(), nullable=False),
+        sa.Column("state", sa.String(), nullable=False),
+        sa.Column("rationale", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint("from_agent_id <> to_agent_id", name="weak_discovery_edges_no_self_check"),
+        sa.CheckConstraint("state in ('available', 'inactive')", name="weak_discovery_edges_state_check"),
+        sa.ForeignKeyConstraint(["from_agent_id"], ["nodes.id"]),
+        sa.ForeignKeyConstraint(["to_agent_id"], ["nodes.id"]),
+        sa.PrimaryKeyConstraint("from_agent_id", "to_agent_id", "field"),
+    )
+    op.create_index("weak_discovery_edges_field_idx", "weak_discovery_edges", ["field"])
+    op.create_index("weak_discovery_edges_from_state_idx", "weak_discovery_edges", ["from_agent_id", "state"])
+    op.create_index("weak_discovery_edges_to_state_idx", "weak_discovery_edges", ["to_agent_id", "state"])
+    op.create_table(
         "negotiations",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("from_agent_id", sa.String(), nullable=False),
@@ -83,7 +101,7 @@ def upgrade() -> None:
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.CheckConstraint(
-            "type in ('open_negotiation_request', 'open_negotiation_response', 'message', 'fact_disclosed', 'match_proposed', 'match_accepted', 'close_negotiation')",
+            "type in ('open_negotiation_request', 'open_negotiation_response', 'message', 'fact_disclosed', 'match_proposed', 'match_accepted', 'close_negotiation', 'weak_connection_probed', 'contact_requested')",
             name="protocol_events_type_check",
         ),
         sa.ForeignKeyConstraint(["actor_agent_id"], ["nodes.id"]),
@@ -107,6 +125,10 @@ def downgrade() -> None:
     op.drop_index("representation_edges_represented_idx", table_name="representation_edges")
     op.drop_index("representation_edges_agent_state_idx", table_name="representation_edges")
     op.drop_table("representation_edges")
+    op.drop_index("weak_discovery_edges_to_state_idx", table_name="weak_discovery_edges")
+    op.drop_index("weak_discovery_edges_from_state_idx", table_name="weak_discovery_edges")
+    op.drop_index("weak_discovery_edges_field_idx", table_name="weak_discovery_edges")
+    op.drop_table("weak_discovery_edges")
     op.drop_index("agent_connections_to_agent_idx", table_name="agent_connections")
     op.drop_index("agent_connections_state_idx", table_name="agent_connections")
     op.drop_table("agent_connections")

@@ -109,7 +109,7 @@ Measure differences in:
 3. Introduce platform constitution prompt text as a reusable prompt layer. Implemented in `net_working_platform.experiments.prompts`.
 4. Introduce strategy definitions as data, not hardcoded prompt fragments. Implemented in `net_working_platform.experiments.strategies`.
 5. Build pairwise strategy scenario runner. Initial runner exists at `scripts.dev.run_pairwise_strategy_experiment`.
-6. Build opportunity discovery scenario runner.
+6. Build opportunity discovery scenario runner. Initial deterministic weak-discovery scenario exists with field-scoped weak edges for marketing/programming agents.
 7. Re-run open-market experiments with mixed strategies only after pairwise behavior is understandable.
 
 ## Pairwise Runner Baseline
@@ -123,6 +123,8 @@ For live provider runs, the pairwise runner derives a turn-specific structured-o
 Pairwise scenarios now include initial represented-party fact profiles with salary range, credentials, benefits, employment type, disposition, career path, and ranked priorities. Agents can attach currently available fields through `disclose_fact_fields` on a substantive protocol action. Attached disclosures append structured `fact_disclosed` events before the substantive action and do not consume free-form message budget; fact disclosure is not a standalone protocol action.
 
 Pending match proposals are represented as `proposal_pending` negotiation state. A proposal must be resolved by acceptance, closure, or a message that returns the negotiation to `open`; additional proposals are unavailable while a proposal is pending.
+
+Discovery work has started with field-scoped weak discovery edges. Weak discovery edges allow agents to list/probe/connect with same-field agents before an active agent-agent connection exists, but weak discovery does not authorize negotiation directly. The first deterministic scenario has five agents: two marketing client agents, one programming client agent, one marketing principal agent, and one programming principal agent. Marketing agents can discover/probe/connect with marketing agents, but not programming agents. A dev-only live runner exists at `scripts.dev.run_weak_discovery_experiment` for testing whether LLMs respect field-scoped weak discovery and choose relevant same-field principals.
 
 Example:
 

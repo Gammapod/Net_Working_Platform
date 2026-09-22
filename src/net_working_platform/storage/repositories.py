@@ -15,6 +15,8 @@ from net_working_platform.domain.model import (
     ProtocolEventType,
     RepresentationEdge,
     RepresentationState,
+    WeakDiscoveryEdge,
+    WeakDiscoveryState,
 )
 from net_working_platform.storage.schema import (
     agent_connections,
@@ -22,6 +24,7 @@ from net_working_platform.storage.schema import (
     nodes,
     protocol_events,
     representation_edges,
+    weak_discovery_edges,
 )
 
 
@@ -82,6 +85,14 @@ class SqlAgentConnectionRepository:
             state=AgentConnectionState(record["state"]),
         )
 
+    def count_active_from_agent(self, agent_id: str) -> int:
+        return self._connection.execute(
+            select(func.count()).select_from(agent_connections).where(
+                agent_connections.c.from_agent_id == agent_id,
+                agent_connections.c.state == AgentConnectionState.ACTIVE.value,
+            )
+        ).scalar_one()
+
 
 class SqlRepresentationEdgeRepository:
     def __init__(self, connection: Connection) -> None:
@@ -115,6 +126,57 @@ class SqlRepresentationEdgeRepository:
             represented_node_id=record["represented_node_id"],
             represented_node_type=NodeType(record["represented_node_type"]),
             state=RepresentationState(record["state"]),
+        )
+
+
+class SqlWeakDiscoveryEdgeRepository:
+    def __init__(self, connection: Connection) -> None:
+        self._connection = connection
+
+    def add(self, edge: WeakDiscoveryEdge) -> None:
+        now = _utcnow()
+        self._connection.execute(
+            insert(weak_discovery_edges).values(
+                from_agent_id=edge.from_agent_id,
+                to_agent_id=edge.to_agent_id,
+                field=edge.field,
+                state=edge.state.value,
+                rationale=edge.rationale,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+    def get(self, from_agent_id: str, to_agent_id: str, field: str) -> WeakDiscoveryEdge | None:
+        row = self._connection.execute(
+            select(weak_discovery_edges).where(
+                weak_discovery_edges.c.from_agent_id == from_agent_id,
+                weak_discovery_edges.c.to_agent_id == to_agent_id,
+                weak_discovery_edges.c.field == field,
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return self._to_domain(row._mapping)
+
+    def list_available_for_agent(self, agent_id: str) -> list[WeakDiscoveryEdge]:
+        rows = self._connection.execute(
+            select(weak_discovery_edges)
+            .where(
+                weak_discovery_edges.c.from_agent_id == agent_id,
+                weak_discovery_edges.c.state == WeakDiscoveryState.AVAILABLE.value,
+            )
+            .order_by(weak_discovery_edges.c.field, weak_discovery_edges.c.to_agent_id)
+        ).all()
+        return [self._to_domain(row._mapping) for row in rows]
+
+    def _to_domain(self, record: object) -> WeakDiscoveryEdge:
+        return WeakDiscoveryEdge(
+            from_agent_id=record["from_agent_id"],
+            to_agent_id=record["to_agent_id"],
+            field=record["field"],
+            state=WeakDiscoveryState(record["state"]),
+            rationale=record["rationale"],
         )
 
 
