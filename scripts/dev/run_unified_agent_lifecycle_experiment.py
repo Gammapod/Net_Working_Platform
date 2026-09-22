@@ -59,6 +59,8 @@ def run_unified_agent_lifecycle_experiment(
     baseline_model: str = "gpt-4o-mini",
     reset_db: bool = False,
     decision_provider: DecisionProvider | None = None,
+    contact_limit: int = MAX_CONTACTS_PER_AGENT,
+    negotiation_limit: int = MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     if reset_db:
@@ -76,9 +78,11 @@ def run_unified_agent_lifecycle_experiment(
                 turn=turn,
                 baseline_model=baseline_model,
                 decision_provider=decision_provider,
+                contact_limit=contact_limit,
+                negotiation_limit=negotiation_limit,
             )
         )
-    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db)
+    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit)
     (output_dir / "transcript.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in transcript), encoding="utf-8")
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
@@ -142,8 +146,10 @@ def _execute_turn(
     turn: int,
     baseline_model: str,
     decision_provider: DecisionProvider | None,
+    contact_limit: int,
+    negotiation_limit: int,
 ) -> dict[str, object]:
-    context = _combined_context(db_url, scenario, actor_agent_id)
+    context = _combined_context(db_url, scenario, actor_agent_id, contact_limit, negotiation_limit)
     valid_actions = _valid_unified_actions(context)
     if not valid_actions:
         valid_actions = ["defer"]
@@ -154,7 +160,7 @@ def _execute_turn(
     error = None
     try:
         raw = decision_provider(context) if decision_provider is not None else _request_openai_json(prompt=prompt, model=baseline_model, json_schema=schema)
-        execution = _execute_raw_decision(db_url, scenario, raw, now=_now(turn))
+        execution = _execute_raw_decision(db_url, scenario, raw, now=_now(turn), negotiation_limit=negotiation_limit)
     except Exception as exc:  # pragma: no cover
         error = {"type": type(exc).__name__, "message": str(exc)}
     return {
@@ -168,7 +174,13 @@ def _execute_turn(
     }
 
 
-def _combined_context(db_url: str, scenario: UnifiedScenario, actor_agent_id: str) -> dict[str, object]:
+def _combined_context(
+    db_url: str,
+    scenario: UnifiedScenario,
+    actor_agent_id: str,
+    contact_limit: int,
+    negotiation_limit: int,
+) -> dict[str, object]:
     engine = create_engine(db_url)
     field = scenario.agent_fields[actor_agent_id]
     represented_type = scenario.represented_types[actor_agent_id]
@@ -180,7 +192,7 @@ def _combined_context(db_url: str, scenario: UnifiedScenario, actor_agent_id: st
         decision_context = negotiation_service.get_agent_decision_context(
             agent_id=actor_agent_id,
             recent_event_limit=20,
-            max_active_negotiations=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
+            max_active_negotiations=negotiation_limit,
         )
         discoverable = discovery.list_discoverable_agents(actor_agent_id=actor_agent_id, field=field)
     open_contact_targets = {str(contact["to_agent_id"]) for contact in contacts}
@@ -189,13 +201,13 @@ def _combined_context(db_url: str, scenario: UnifiedScenario, actor_agent_id: st
         "actor_agent_id": actor_agent_id,
         "field": field,
         "represented_type": represented_type,
-        "contact_limit": MAX_CONTACTS_PER_AGENT,
+        "contact_limit": contact_limit,
         "contacts": contacts,
-        "contact_slots_remaining": max(MAX_CONTACTS_PER_AGENT - len(contacts), 0),
+        "contact_slots_remaining": max(contact_limit - len(contacts), 0),
         "discoverable_agents": [record for record in discoverable if str(record["agent_id"]) not in open_contact_targets],
-        "negotiation_limit": MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
+        "negotiation_limit": negotiation_limit,
         "active_negotiation_count": len(active_negotiations),
-        "negotiation_slots_remaining": max(MAX_ACTIVE_NEGOTIATIONS_PER_AGENT - len(active_negotiations), 0),
+        "negotiation_slots_remaining": max(negotiation_limit - len(active_negotiations), 0),
         "focus_negotiation_id": focus_negotiation_id or "",
         "decision_context": decision_context,
     }
@@ -285,7 +297,14 @@ def _prompt(context: dict[str, object]) -> str:
     )
 
 
-def _execute_raw_decision(db_url: str, scenario: UnifiedScenario, raw: dict[str, Any], *, now: datetime) -> dict[str, object]:
+def _execute_raw_decision(
+    db_url: str,
+    scenario: UnifiedScenario,
+    raw: dict[str, Any],
+    *,
+    now: datetime,
+    negotiation_limit: int,
+) -> dict[str, object]:
     action = raw.get("action")
     actor = str(raw.get("actor_agent_id"))
     engine = create_engine(db_url)
@@ -307,7 +326,7 @@ def _execute_raw_decision(db_url: str, scenario: UnifiedScenario, raw: dict[str,
                     from_agent_id=actor,
                     to_agent_id=target,
                     subject={"field": scenario.agent_fields[actor], "reason": str(raw["reason"]), "need": "job_opportunity"},
-                    max_open_negotiations=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
+                    max_open_negotiations=negotiation_limit,
                 )
             )
     if action == "defer":
@@ -335,7 +354,16 @@ def _contacts_from(connection: object, actor_agent_id: str) -> list[dict[str, ob
     return [_jsonable(dict(row._mapping)) for row in rows]
 
 
-def _summary(db_url: str, output_dir: Path, scenario: UnifiedScenario, transcript: list[dict[str, object]], baseline_model: str, reset_db: bool) -> dict[str, object]:
+def _summary(
+    db_url: str,
+    output_dir: Path,
+    scenario: UnifiedScenario,
+    transcript: list[dict[str, object]],
+    baseline_model: str,
+    reset_db: bool,
+    contact_limit: int,
+    negotiation_limit: int,
+) -> dict[str, object]:
     engine = create_engine(db_url)
     with engine.begin() as connection:
         connection_rows = connection.execute(select(agent_connections)).all()
@@ -346,6 +374,11 @@ def _summary(db_url: str, output_dir: Path, scenario: UnifiedScenario, transcrip
         "baseline_model": baseline_model,
         "reset_db": reset_db,
         "turns": len(transcript),
+        "bandwidth_limits": {
+            "contact_limit": contact_limit,
+            "negotiation_limit": negotiation_limit,
+            "message_quota": 3,
+        },
         "metrics": {
             "contacts_created": len(connection_rows),
             "negotiations_created": len(negotiation_rows),
@@ -416,9 +449,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--turns", type=int, default=30)
     parser.add_argument("--baseline-model", default="gpt-4o-mini")
+    parser.add_argument("--contact-limit", type=int, default=MAX_CONTACTS_PER_AGENT)
+    parser.add_argument("--negotiation-limit", type=int, default=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT)
     parser.add_argument("--reset-db", action="store_true")
     args = parser.parse_args(argv)
-    print(json.dumps(run_unified_agent_lifecycle_experiment(db_url=args.db_url, output_dir=args.output_dir, turns=args.turns, baseline_model=args.baseline_model, reset_db=args.reset_db), indent=2, sort_keys=True))
+    print(json.dumps(run_unified_agent_lifecycle_experiment(
+        db_url=args.db_url,
+        output_dir=args.output_dir,
+        turns=args.turns,
+        baseline_model=args.baseline_model,
+        reset_db=args.reset_db,
+        contact_limit=args.contact_limit,
+        negotiation_limit=args.negotiation_limit,
+    ), indent=2, sort_keys=True))
     return 0
 
 

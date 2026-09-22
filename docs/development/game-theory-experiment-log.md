@@ -711,3 +711,309 @@ Follow-ups:
 
 - Consider scheduling agents with pending proposals or inbound requests ahead of ordinary round-robin turns.
 - Consider stricter pressure after message budget exhaustion in the unified runner, similar to the pairwise runner's terminal pressure.
+
+## 2026-09-21: Initial Bandwidth Sweep
+
+Model or decision source: OpenAI `gpt-4o-mini` through `scripts.dev.run_bandwidth_sweep_experiment`.
+
+Scenario/matrix: Unified 10-agent lifecycle market.
+
+Protocol/harness state:
+
+- Focused negotiation schema active.
+- Contact and active negotiation limits parameterized in the unified runner.
+- Message quota remained fixed at 3 messages per actor per negotiation for this initial sweep.
+- Sweep varied contact limit and active negotiation limit only.
+
+Sweep parameters:
+
+- Turns per run: 60
+- Repetitions per configuration: 2
+- Contact limits: 1, 3
+- Active negotiation limits: 1, 2
+
+Aggregate result:
+
+| Contact Limit | Negotiation Limit | Avg Contacts | Avg Negotiations | Avg Matched | Avg Closed | Avg Open | Avg Proposal Pending | Avg Errors |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1 | 10.0 | 8.5 | 0.0 | 1.0 | 4.5 | 3.0 | 0.0 |
+| 1 | 2 | 10.0 | 9.0 | 1.0 | 0.0 | 5.0 | 3.0 | 0.0 |
+| 3 | 1 | 10.0 | 8.5 | 0.5 | 1.5 | 4.5 | 2.0 | 0.0 |
+| 3 | 2 | 10.0 | 8.5 | 0.0 | 0.5 | 4.5 | 3.5 | 0.0 |
+
+Observed result:
+
+- All configurations created 10 contacts: one per scheduled agent in the 10-agent scenario. The contact limit did not bind in this setup because each agent only needed one useful same-field contact before negotiation actions became higher priority.
+- Active negotiation limit showed small effects but the sample is too small to infer strong direction. Limit 2 produced one matched negotiation in the contact-limit-1 condition but more proposal-pending leftovers in the contact-limit-3 condition.
+- Error rate remained 0 across the sweep, suggesting the focused schema is stable under repeated live runs.
+- Most negotiations were still open or proposal-pending after 60 turns, so turn budget/scheduler pressure is currently a stronger bottleneck than contact limit.
+
+Follow-ups:
+
+- Run a larger sweep with more repetitions after adding priority scheduling for inbound requests and proposal-pending negotiations.
+- Add a scenario where contact limit can bind, e.g. more weak-discoverable targets per agent and fewer immediately useful principal contacts.
+- Parameterize message quota in the application service before sweeping message bandwidth.
+
+## 2026-09-22: Networking-Only Workflow Runner
+
+Model or decision source: OpenAI `gpt-4o-mini` through `scripts.dev.run_networking_experiment`; deterministic injected policy in tests.
+
+Scenario/matrix: Same 10-agent weak discovery/contact scenario used by the unified lifecycle runner.
+
+Protocol/harness state:
+
+- Negotiation work and networking work are separated for experiments.
+- Negotiation experiments remain bounded two-party workflows where the endpoint is a terminal negotiation state: `matched` or `closed`.
+- Networking experiments expose broader weak discovery/contact/capacity context and stop the scheduled agent's workflow once that agent opens a negotiation request.
+- The networking runner does not accept, message, propose, accept match, or close negotiations after the request is opened.
+
+Decision/change:
+
+- Added `scripts.dev.run_networking_experiment`.
+- The networking action schema permits `request_contact`/`probe_weak_connection` when no relevant contact exists, and narrows to `request_negotiation` once the actor has a contact and negotiation capacity.
+- Added deterministic tests proving the action-priority split and that an actor workflow is considered complete once it creates a negotiation request.
+
+Live smoke result:
+
+| Metric | Count |
+| --- | ---: |
+| Turns | 30 |
+| Contacts created | 12 |
+| Negotiations requested | 9 |
+| Workflows completed | 9 |
+| Workflow completion rate | 0.9 |
+| Errors | 0 |
+
+Aggregate decisions/events:
+
+- `request_contact`: 12
+- `request_negotiation`: 9
+- `contact_requested` events: 12
+- `open_negotiation_request` events: 9
+
+Observed result:
+
+- The split is useful: the runner measures contact-to-negotiation opening behavior without conflating it with negotiation terminality.
+- Most agents completed the networking endpoint within 30 turns.
+- The runner still prioritizes opening a negotiation after the first contact, so future networking scenarios must make multiple contacts strategically useful before contact limits will bind.
+
+Verification:
+
+- `python -m pytest tests/test_networking_experiment.py` passed: 3 tests.
+- `python -m pytest` passed: 137 tests.
+
+Follow-ups:
+
+- Add a networking scenario where one agent represents multiple parties or has multiple plausible contact targets before a negotiation should be opened.
+- Add hidden match-quality scoring so opening a negotiation with the first plausible contact can be compared against opening the best available contact.
+- Preserve the single-topic context boundary for negotiation experiments: once a negotiation is open, do not expose unrelated contacts or represented parties in that negotiation context.
+
+## 2026-09-22: Multi-Party Topic-Selection Networking Smoke Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through `scripts.dev.run_topic_selection_networking_experiment`; deterministic injected policy in tests.
+
+Scenario/matrix:
+
+- `client_portfolio_agent` represents two clients: a marketing generalist and a backend engineer.
+- `principal_portfolio_agent` represents two principals/openings: a marketing coordinator role and a data engineering role.
+- A directional contact already exists from the client-side portfolio agent to the principal-side portfolio agent.
+
+Protocol/harness state:
+
+- This is a networking/topic-selection experiment, not a negotiation experiment.
+- The workflow endpoint is creating one `open_negotiation_request`.
+- The request subject must include exactly one client topic and exactly one principal topic.
+- Accepting-agent counter-offers, topic substitution, and partial topic proposals remain open protocol-design questions.
+
+Decision/change:
+
+- Added `seed_multi_party_contact_scenario` for the smallest portfolio-agent contact case.
+- Added `scripts.dev.run_topic_selection_networking_experiment` to run one client-side networking turn over the existing contact.
+- Added tests for schema-constrained topic selection, successful topic-pair negotiation creation, and rejection of unrepresented topics.
+
+Live smoke result:
+
+| Metric | Value |
+| --- | --- |
+| Negotiations requested | 1 |
+| Open negotiation request events | 1 |
+| Selected client topic | `client_marketing_generalist` |
+| Selected principal topic | `principal_marketing_role` |
+| Exactly one client topic | true |
+| Exactly one principal topic | true |
+
+Observed result:
+
+- The model chose the clearly aligned marketing client + marketing role pair over the less-aligned backend/data pair.
+- The runner cleanly records the selected topic pair in the negotiation subject without entering two-party negotiation.
+
+Verification:
+
+- `python -m pytest tests/test_topic_selection_networking_experiment.py` passed: 3 tests.
+- `python -m pytest` passed: 140 tests.
+
+Follow-ups:
+
+- Decide whether the proposer should always include both topics, or whether partial topic proposals should be allowed.
+- Decide whether the accepting agent may accept, fill missing topics, counter with a different topic pair, or reject.
+- Once topic-open protocol is clearer, feed the opened topic pair into the bounded single-topic negotiation context.
+
+### Follow-up: 10 repeated topic-selection runs
+
+Run parameters:
+
+- Runner: `scripts.dev.run_topic_selection_networking_experiment`
+- Model: OpenAI `gpt-4o-mini`
+- Repetitions: 10 independent 1-turn runs
+
+Aggregate result:
+
+| Selected Client Topic | Selected Principal Topic | Count |
+| --- | --- | ---: |
+| `client_marketing_generalist` | `principal_marketing_role` | 10 |
+
+Protocol shape:
+
+- Valid exactly-one-client-topic subjects: 10/10
+- Valid exactly-one-principal-topic subjects: 10/10
+- Negotiation requests created: 10/10
+
+Interpretation:
+
+- The current schema and prompt reliably produce a well-formed two-topic negotiation request in this simple scenario.
+- Because one pair is obviously aligned and the alternatives are weakly aligned, this scenario tests protocol shape more than nuanced ranking.
+- The model's repeated choice suggests that a required `(client_topic_id, principal_topic_id)` request is a stable baseline for the first topic-selection protocol.
+
+Follow-ups:
+
+- Add a harder ambiguous scenario where both principal topics are plausible for the same client or both clients are plausible for the same principal.
+- Add an accepting-agent response experiment: accept exact topic pair, reject, or counter with a different represented topic pair.
+
+### Follow-up: ambiguous 10 repeated topic-selection runs
+
+Protocol/harness change:
+
+- Added `--scenario-kind ambiguous` to `scripts.dev.run_topic_selection_networking_experiment`.
+- The ambiguous scenario has two plausible diagonal topic pairs:
+  - backend API client + platform API role, emphasizing strong role fit and growth path;
+  - data pipeline client + data platform role, emphasizing quick placement and soon-to-fill data pipeline ownership.
+
+Run parameters:
+
+- Runner: `scripts.dev.run_topic_selection_networking_experiment --scenario-kind ambiguous`
+- Model: OpenAI `gpt-4o-mini`
+- Repetitions: 10 independent 1-turn runs
+
+Aggregate result:
+
+| Selected Client Topic | Selected Principal Topic | Count |
+| --- | --- | ---: |
+| `client_data_pipeline_engineer` | `principal_data_platform_role` | 8 |
+| `client_backend_api_engineer` | `principal_platform_api_role` | 2 |
+
+Protocol shape:
+
+- Valid exactly-one-client-topic subjects: 10/10
+- Valid exactly-one-principal-topic subjects: 10/10
+- Negotiation requests created: 10/10
+
+Interpretation:
+
+- The required two-topic request shape remained stable under a more ambiguous choice.
+- The model mostly favored the data/data-platform pair. The reasons repeatedly cited data-pipeline alignment and quick placement / soon-to-fill urgency.
+- The backend/platform pair appeared in 2 of 10 runs, with reasons emphasizing backend strength and growth-path fit.
+- This suggests the current context is sufficient for basic tradeoff behavior, but priorities are unweighted natural language. If portfolio behavior needs to be predictable, we likely need explicit priority/ranking fields rather than relying on free-text summaries.
+
+Follow-ups:
+
+- Add explicit priority weights or strategy labels to represented topics and test whether choices shift predictably.
+- Add accepting-agent topic-response protocol next: accept exact pair, reject, or counter with a different pair.
+
+## 2026-09-22: Partial Topic Proposal And Responder Fill Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through `scripts.dev.run_partial_topic_proposal_experiment`; deterministic injected policy in tests.
+
+Scenario/matrix: Ambiguous two-plausible-pair portfolio contact scenario.
+
+Protocol/harness state:
+
+- The client-side portfolio agent proposes exactly one of its own client topics, without selecting the contact's principal topic.
+- The principal-side portfolio agent responds by either accepting with exactly one represented principal topic or rejecting without selecting a principal topic.
+- If accepted, the harness opens an `open_negotiation_request` whose subject contains exactly one client topic and one responder-filled principal topic.
+
+Decision/change:
+
+- Added `scripts.dev.run_partial_topic_proposal_experiment`.
+- Added tests for accept-with-principal-topic, reject-without-negotiation, and malformed reject validation.
+
+Repeated live result:
+
+| Proposed Client Topic | Responder Principal Topic | Count |
+| --- | --- | ---: |
+| `client_data_pipeline_engineer` | `principal_data_platform_role` | 10 |
+
+Protocol shape:
+
+- Proposals created with exactly one client topic: 10/10
+- Responses accepted with exactly one principal topic: 10/10
+- Rejections: 0/10
+- Negotiation requests created after acceptance: 10/10
+
+Interpretation:
+
+- The partial-topic flow is structurally viable: the proposer can limit itself to its own candidate, and the responder can fill the principal side to produce a complete negotiation topic pair.
+- In this scenario, proposer choice became more concentrated than the prior both-topics experiment: data pipeline candidate was selected 10/10, versus 8/10 when the proposer chose both topics.
+- This likely happened because the proposing context says the contact represents principal topics but hides exact principal topics; the client-side agent leaned toward the candidate with broadly legible data/placement relevance rather than the backend growth-path candidate.
+- The responder consistently selected the data platform role and never rejected, which is expected because a strong matching principal topic existed.
+
+Follow-ups:
+
+- Add a no-good-fit variant to test whether the responder rejects when no represented principal topic fits the proposed client topic.
+- Add a mismatch variant where the proposer chooses a plausible candidate but the responder's best available principal topic is weaker, to observe whether it accepts marginal fit or rejects.
+- Consider whether partial topic proposals should be represented as their own persisted protocol event before a negotiation request exists, rather than only as runner transcript state.
+
+### Follow-up: bad-fit rejection runs
+
+Protocol/harness change:
+
+- Added `--scenario-kind bad-fit` to `scripts.dev.run_partial_topic_proposal_experiment`.
+- Client topics are deliberately unrelated to principal topics:
+  - clients: hospitality barista, graphic designer;
+  - principals: senior ML engineer, security architect.
+
+Run parameters:
+
+- Runner: `scripts.dev.run_partial_topic_proposal_experiment --scenario-kind bad-fit`
+- Model: OpenAI `gpt-4o-mini`
+- Repetitions: 10 independent proposal/response runs
+
+Aggregate result:
+
+| Proposed Client Topic | Count |
+| --- | ---: |
+| `client_barista` | 6 |
+| `client_graphic_designer` | 4 |
+
+Response result:
+
+| Response | Count |
+| --- | ---: |
+| `reject_client_topic` | 10 |
+| `accept_with_principal_topic` | 0 |
+
+Protocol outcome:
+
+- Accepted: 0/10
+- Negotiation requests created: 0/10
+- Rejections selected no principal topic: 10/10
+
+Interpretation:
+
+- The responder reliably rejected deliberately-bad proposals instead of forcing a weak principal topic.
+- The proposer varied between its two bad client topics, but this did not affect responder discipline.
+- This supports partial-topic proposal as a safe opening protocol when paired with a responder-side reject path.
+
+Follow-ups:
+
+- Add a marginal-fit scenario to find the acceptance threshold between obvious accept and obvious reject.
+- Consider persisting partial-topic proposal/rejection as pre-negotiation contact events if this flow becomes product behavior rather than only experiment harness behavior.

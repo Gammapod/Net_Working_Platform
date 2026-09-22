@@ -93,6 +93,18 @@ class PairwiseStrategyScenario:
 
 
 @dataclass(frozen=True)
+class MultiPartyContactScenario:
+    db_url: str
+    scenario_id: str
+    client_agent_id: str
+    principal_agent_id: str
+    client_ids: tuple[str, str]
+    principal_ids: tuple[str, str]
+    client_summaries: dict[str, dict[str, object]]
+    principal_summaries: dict[str, dict[str, object]]
+
+
+@dataclass(frozen=True)
 class WeakDiscoveryScenario:
     db_url: str
     marketing_client_agent_ids: tuple[str, str]
@@ -593,6 +605,213 @@ def seed_pairwise_strategy_scenario(
         client_facts=client_facts,
         principal_facts=principal_facts,
         represented_party_profiles_by_agent=represented_party_profiles_by_agent,
+    )
+
+
+def seed_multi_party_contact_scenario(db_url: str) -> MultiPartyContactScenario:
+    """Create two contacted agents, each representing two parties.
+
+    The scenario is intentionally small for networking-topic experiments: the
+    client-side agent has one existing directional contact to the principal-side
+    agent and must choose exactly one client topic plus one principal topic when
+    opening a negotiation request.
+    """
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+    client_summaries: dict[str, dict[str, object]] = {
+        "client_marketing_generalist": {
+            "represented_party_id": "client_marketing_generalist",
+            "represented_party_type": "client",
+            "field": "marketing",
+            "summary": "Marketing generalist with campaign operations and lifecycle email experience.",
+            "target_role": "marketing coordinator",
+            "priority": "quick placement in marketing",
+        },
+        "client_backend_engineer": {
+            "represented_party_id": "client_backend_engineer",
+            "represented_party_type": "client",
+            "field": "software engineering",
+            "summary": "Backend engineer with Python API and data pipeline experience.",
+            "target_role": "backend engineer",
+            "priority": "backend role with growth path",
+        },
+    }
+    principal_summaries: dict[str, dict[str, object]] = {
+        "principal_marketing_role": {
+            "represented_party_id": "principal_marketing_role",
+            "represented_party_type": "principal",
+            "field": "marketing",
+            "summary": "Hiring for marketing coordinator supporting campaigns and lifecycle email.",
+            "role": "marketing coordinator",
+            "priority": "fill quickly with relevant campaign experience",
+        },
+        "principal_data_role": {
+            "represented_party_id": "principal_data_role",
+            "represented_party_type": "principal",
+            "field": "data engineering",
+            "summary": "Hiring for data engineer focused on warehouse modeling and analytics pipelines.",
+            "role": "data engineer",
+            "priority": "strong data modeling background",
+        },
+    }
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        nodes.add(Node(id="client_portfolio_agent", type=NodeType.AGENT), display_name="Client Portfolio Agent")
+        nodes.add(Node(id="principal_portfolio_agent", type=NodeType.AGENT), display_name="Principal Portfolio Agent")
+        for client_id in client_summaries:
+            nodes.add(Node(id=client_id, type=NodeType.CLIENT), display_name=client_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("client_portfolio_agent", client_id, NodeType.CLIENT, RepresentationState.ACTIVE))
+        for principal_id in principal_summaries:
+            nodes.add(Node(id=principal_id, type=NodeType.PRINCIPAL), display_name=principal_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("principal_portfolio_agent", principal_id, NodeType.PRINCIPAL, RepresentationState.ACTIVE))
+        agent_connections.add(AgentConnection("client_portfolio_agent", "principal_portfolio_agent", AgentConnectionState.ACTIVE))
+
+    return MultiPartyContactScenario(
+        db_url=db_url,
+        scenario_id="clear_marketing_fit",
+        client_agent_id="client_portfolio_agent",
+        principal_agent_id="principal_portfolio_agent",
+        client_ids=tuple(client_summaries),
+        principal_ids=tuple(principal_summaries),
+        client_summaries=client_summaries,
+        principal_summaries=principal_summaries,
+    )
+
+
+def seed_ambiguous_multi_party_contact_scenario(db_url: str) -> MultiPartyContactScenario:
+    """Create a portfolio contact scenario with two plausible topic pairs."""
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+    client_summaries: dict[str, dict[str, object]] = {
+        "client_backend_api_engineer": {
+            "represented_party_id": "client_backend_api_engineer",
+            "represented_party_type": "client",
+            "field": "software engineering",
+            "summary": "Backend engineer strongest in Python APIs, reliability, and some data pipeline work.",
+            "target_role": "backend/platform engineer",
+            "priority": "prefer growth path and strong role fit over fastest placement",
+        },
+        "client_data_pipeline_engineer": {
+            "represented_party_id": "client_data_pipeline_engineer",
+            "represented_party_type": "client",
+            "field": "data engineering",
+            "summary": "Data pipeline engineer with Python ETL, warehouse modeling, and analytics support experience.",
+            "target_role": "data engineer or backend data role",
+            "priority": "quick placement is important, but avoid roles with no data work",
+        },
+    }
+    principal_summaries: dict[str, dict[str, object]] = {
+        "principal_platform_api_role": {
+            "represented_party_id": "principal_platform_api_role",
+            "represented_party_type": "principal",
+            "field": "software engineering",
+            "summary": "Hiring a platform API engineer for Python services with reliability and light data integration work.",
+            "role": "platform API engineer",
+            "priority": "strong backend API fit and long-term growth potential",
+        },
+        "principal_data_platform_role": {
+            "represented_party_id": "principal_data_platform_role",
+            "represented_party_type": "principal",
+            "field": "data engineering",
+            "summary": "Hiring a data platform engineer for Python pipelines, warehouse modeling, and analytics enablement.",
+            "role": "data platform engineer",
+            "priority": "fill soon with evidence of data pipeline ownership",
+        },
+    }
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        nodes.add(Node(id="client_portfolio_agent", type=NodeType.AGENT), display_name="Client Portfolio Agent")
+        nodes.add(Node(id="principal_portfolio_agent", type=NodeType.AGENT), display_name="Principal Portfolio Agent")
+        for client_id in client_summaries:
+            nodes.add(Node(id=client_id, type=NodeType.CLIENT), display_name=client_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("client_portfolio_agent", client_id, NodeType.CLIENT, RepresentationState.ACTIVE))
+        for principal_id in principal_summaries:
+            nodes.add(Node(id=principal_id, type=NodeType.PRINCIPAL), display_name=principal_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("principal_portfolio_agent", principal_id, NodeType.PRINCIPAL, RepresentationState.ACTIVE))
+        agent_connections.add(AgentConnection("client_portfolio_agent", "principal_portfolio_agent", AgentConnectionState.ACTIVE))
+
+    return MultiPartyContactScenario(
+        db_url=db_url,
+        scenario_id="ambiguous_two_plausible_pairs",
+        client_agent_id="client_portfolio_agent",
+        principal_agent_id="principal_portfolio_agent",
+        client_ids=tuple(client_summaries),
+        principal_ids=tuple(principal_summaries),
+        client_summaries=client_summaries,
+        principal_summaries=principal_summaries,
+    )
+
+
+def seed_bad_fit_multi_party_contact_scenario(db_url: str) -> MultiPartyContactScenario:
+    """Create a portfolio contact scenario where client topics should not fit principal topics."""
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+    client_summaries: dict[str, dict[str, object]] = {
+        "client_barista": {
+            "represented_party_id": "client_barista",
+            "represented_party_type": "client",
+            "field": "hospitality",
+            "summary": "Barista with cafe operations and customer service experience, seeking local hospitality work.",
+            "target_role": "barista or cafe shift lead",
+            "priority": "local hospitality placement only",
+        },
+        "client_graphic_designer": {
+            "represented_party_id": "client_graphic_designer",
+            "represented_party_type": "client",
+            "field": "graphic design",
+            "summary": "Graphic designer focused on brand identity, print layouts, and social media assets.",
+            "target_role": "graphic designer",
+            "priority": "creative design role with portfolio review",
+        },
+    }
+    principal_summaries: dict[str, dict[str, object]] = {
+        "principal_senior_ml_role": {
+            "represented_party_id": "principal_senior_ml_role",
+            "represented_party_type": "principal",
+            "field": "machine learning",
+            "summary": "Hiring a senior ML engineer requiring production model deployment and Python ML systems experience.",
+            "role": "senior machine learning engineer",
+            "priority": "must have production ML engineering experience",
+        },
+        "principal_security_architect_role": {
+            "represented_party_id": "principal_security_architect_role",
+            "represented_party_type": "principal",
+            "field": "cybersecurity",
+            "summary": "Hiring a security architect requiring threat modeling, cloud security, and incident response leadership.",
+            "role": "security architect",
+            "priority": "must have senior cybersecurity architecture background",
+        },
+    }
+
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        representation_edges = SqlRepresentationEdgeRepository(connection)
+        agent_connections = SqlAgentConnectionRepository(connection)
+        nodes.add(Node(id="client_portfolio_agent", type=NodeType.AGENT), display_name="Client Portfolio Agent")
+        nodes.add(Node(id="principal_portfolio_agent", type=NodeType.AGENT), display_name="Principal Portfolio Agent")
+        for client_id in client_summaries:
+            nodes.add(Node(id=client_id, type=NodeType.CLIENT), display_name=client_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("client_portfolio_agent", client_id, NodeType.CLIENT, RepresentationState.ACTIVE))
+        for principal_id in principal_summaries:
+            nodes.add(Node(id=principal_id, type=NodeType.PRINCIPAL), display_name=principal_id.replace("_", " ").title())
+            representation_edges.add(RepresentationEdge("principal_portfolio_agent", principal_id, NodeType.PRINCIPAL, RepresentationState.ACTIVE))
+        agent_connections.add(AgentConnection("client_portfolio_agent", "principal_portfolio_agent", AgentConnectionState.ACTIVE))
+
+    return MultiPartyContactScenario(
+        db_url=db_url,
+        scenario_id="bad_fit_rejection",
+        client_agent_id="client_portfolio_agent",
+        principal_agent_id="principal_portfolio_agent",
+        client_ids=tuple(client_summaries),
+        principal_ids=tuple(principal_summaries),
+        client_summaries=client_summaries,
+        principal_summaries=principal_summaries,
     )
 
 

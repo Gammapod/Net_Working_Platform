@@ -126,6 +126,18 @@ Pending match proposals are represented as `proposal_pending` negotiation state.
 
 Discovery work has started with field-scoped weak discovery edges. Weak discovery edges allow agents to list/probe/connect with same-field agents before an active agent-agent connection exists, but weak discovery does not authorize negotiation directly. The first deterministic scenario has five agents: two marketing client agents, one programming client agent, one marketing principal agent, and one programming principal agent. Marketing agents can discover/probe/connect with marketing agents, but not programming agents. A dev-only live runner exists at `scripts.dev.run_weak_discovery_experiment` for testing whether LLMs respect field-scoped weak discovery and choose relevant same-field principals.
 
+Unified market-level experiments now use `scripts.dev.run_unified_agent_lifecycle_experiment`, which lets scheduled agents choose among discovery, contact formation, negotiation requests, negotiation responses, and negotiation actions from one combined context. `scripts.dev.run_bandwidth_sweep_experiment` runs repeated unified-market configurations across contact and active-negotiation limits; message quota is still fixed at 3 until the application service is parameterized.
+
+Networking-only experiments are separated from negotiation experiments. In negotiation experiments, an agent receives only the single represented client/principal and counterparty needed for a bounded two-party negotiation, and the endpoint is `matched` or `closed`. In networking experiments, an agent may see broader contacts, weak discovery opportunities, active-load/capacity, and represented-party role metadata; the endpoint is opening a relevant negotiation request, not resolving the negotiation. The dev-only runner for this slice is `scripts.dev.run_networking_experiment`.
+
+Before expanding networking to multiple contacts, topic-selection experiments should refine how a portfolio agent opens a negotiation with an existing contact. The smallest slice is one client-side agent representing two clients, one principal-side agent representing two principals, and one existing directional contact. The client-side agent gets one networking turn and must open a negotiation request with exactly one client topic and one principal topic in the request subject. The initial runner for this slice is `scripts.dev.run_topic_selection_networking_experiment`. Counter-offers, accepting-agent topic substitution, and partial topic proposals remain open protocol questions.
+
+`scripts.dev.run_topic_selection_networking_experiment` supports `--scenario-kind clear` for one obvious topic pair and `--scenario-kind ambiguous` for two plausible topic pairs. The ambiguous scenario is intended to reveal which priority signals the model follows when both diagonal pairings are defensible.
+
+A second topic-opening variant allows a proposing agent to include only its own represented topic. This models the case where a contact's portfolio is only partially known: the client-side agent proposes one candidate topic, then the principal-side contact either accepts by filling in the best matching principal topic or rejects if no represented principal topic is appropriate. This remains a networking/opening workflow; if accepted, the endpoint is still an `open_negotiation_request` with exactly one client topic and one principal topic.
+
+The partial-topic runner supports `--scenario-kind bad-fit` to test rejection. In that scenario, client topics are deliberately unrelated to the responder's principal topics, so the desired behavior is rejection without opening a negotiation request.
+
 Example:
 
 ```powershell

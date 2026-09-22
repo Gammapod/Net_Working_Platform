@@ -89,6 +89,7 @@ Protected by:
 - `test_request_contact_requires_matching_weak_edge_and_creates_active_connection`
 - `test_weak_discovery_scenario_allows_same_field_probe_and_connection`
 - `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection`
+- `test_networking_valid_actions_allow_contact_when_no_contact_exists`
 
 ### INV-D-003: Active Contacts Are Limited
 
@@ -376,6 +377,7 @@ Protected by:
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
 - `test_sql_negotiation_repository_counts_requested_open_and_proposal_pending_as_active_load`
 - `test_sql_negotiation_repository_counts_inbound_requested_open_and_proposal_pending_as_active_load`
+- `test_networking_valid_actions_prioritize_negotiation_request_after_contact`
 
 ### INV-C-002: Capacity Rejections Are Recorded
 
@@ -539,3 +541,15 @@ Protected by:
 | `test_pairwise_strategy_runner_rejects_wrong_focus_decision` | INV-L-004 |
 | `test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions` | INV-H-004, INV-L-004 |
 | `test_pairwise_strategy_runner_can_reset_existing_sqlite_database` | INV-H-004 |
+| `test_networking_valid_actions_prioritize_negotiation_request_after_contact` | INV-C-001, INV-N-001, INV-N-002 |
+| `test_networking_valid_actions_allow_contact_when_no_contact_exists` | INV-D-001, INV-D-002 |
+| `test_networking_runner_ends_agent_workflow_at_negotiation_request` | INV-D-002, INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
+| `test_topic_selection_schema_requires_one_client_and_one_principal_topic` | INV-N-001, INV-N-002, INV-L-005 |
+| `test_topic_selection_runner_opens_negotiation_with_exact_topic_pair` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
+| `test_topic_selection_runner_rejects_unrepresented_topic` | INV-N-001, INV-L-004 |
+| `test_ambiguous_topic_selection_scenario_exposes_two_plausible_pairs` | INV-E-003, INV-G-001 |
+| `test_topic_selection_runner_can_use_ambiguous_scenario_kind` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
+| `test_partial_topic_proposal_accepts_by_filling_principal_topic` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
+| `test_partial_topic_proposal_can_be_rejected_without_opening_negotiation` | INV-N-001, INV-L-004 |
+| `test_partial_topic_reject_cannot_select_principal_topic` | INV-L-004 |
+| `test_partial_topic_bad_fit_scenario_can_reject_without_negotiation` | INV-N-001, INV-L-004 |
