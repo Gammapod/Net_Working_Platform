@@ -89,10 +89,32 @@ def _viewer_html(
     .panel-body {{ padding: 0.75rem 1rem; }}
     #graph {{ height: 68vh; min-height: 32rem; }}
     .toolbar {{ display: flex; gap: .5rem; padding: .75rem 1rem; border-bottom: 1px solid #d9deea; }}
+    .turn-controls {{ display: grid; gap: .5rem; padding: .75rem 1rem; border-bottom: 1px solid #d9deea; background: #fbfcff; }}
+    .turn-control-row {{ display: flex; align-items: center; gap: .5rem; }}
+    #turn-slider {{ width: 100%; }}
+    #turn-position {{ min-width: 5.5rem; text-align: center; font-weight: 600; }}
+    .legend {{ display: flex; flex-wrap: wrap; gap: .75rem; padding: .5rem 1rem; border-bottom: 1px solid #d9deea; font-size: .85rem; }}
+    .legend-item {{ display: inline-flex; align-items: center; gap: .35rem; }}
+    .swatch {{ display: inline-block; width: .9rem; height: .9rem; border-radius: 999px; border: 2px solid #172033; }}
+    .swatch.small {{ width: .55rem; height: .55rem; }}
+    .swatch.principal {{ background: #2563eb; }}
+    .swatch.client {{ background: #16a34a; }}
+    .swatch.unknown {{ background: #64748b; }}
+    .swatch.delta {{ background: #dc2626; border-color: #dc2626; border-radius: .15rem; }}
     button {{ border: 1px solid #9aa8c2; background: #fff; border-radius: .5rem; padding: .45rem .65rem; cursor: pointer; }}
     button.active {{ background: #2454d6; color: white; border-color: #2454d6; }}
     .timeline-item {{ display: block; width: 100%; text-align: left; margin-bottom: .5rem; }}
     pre {{ white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; background: #0d1321; color: #e6edf7; padding: .75rem; border-radius: .5rem; max-height: 55vh; overflow: auto; }}
+    .details-panel {{ display: grid; gap: .75rem; }}
+    .object-summary {{ border: 1px solid #d9deea; border-radius: .5rem; padding: .75rem; background: #fbfcff; }}
+    .object-summary dl {{ display: grid; grid-template-columns: 6.5rem 1fr; gap: .25rem .5rem; margin: 0; font-size: .9rem; }}
+    .object-summary dt {{ font-weight: 700; color: #46536b; }}
+    .object-summary dd {{ margin: 0; overflow-wrap: anywhere; }}
+    .event-card {{ border-left: 4px solid #9aa8c2; background: #f8fafc; padding: .6rem .75rem; margin-bottom: .5rem; border-radius: .35rem; }}
+    .event-card strong {{ color: #172033; }}
+    .event-meta {{ font-size: .82rem; color: #5d6880; margin-bottom: .25rem; }}
+    .event-message {{ margin-top: .35rem; white-space: pre-wrap; }}
+    details.debug-json summary {{ cursor: pointer; color: #2454d6; font-weight: 700; }}
     .meta {{ display: grid; gap: .25rem; font-size: .9rem; }}
     .muted {{ color: #5d6880; }}
     @media (max-width: 1100px) {{ main {{ grid-template-columns: 1fr; }} #graph {{ height: 30rem; }} }}
@@ -115,6 +137,23 @@ def _viewer_html(
         <button id="show-final">Final Graph</button>
         <button id="show-selected">Selected Turn State</button>
       </div>
+      <div class="turn-controls" aria-label="Turn navigation">
+        <div class="turn-control-row">
+          <button id="previous-turn" title="Previous turn">◀</button>
+          <span id="turn-position">0 / 0</span>
+          <button id="next-turn" title="Next turn">▶</button>
+          <button id="autoplay-turns">Auto-play</button>
+        </div>
+        <input id="turn-slider" type="range" min="1" max="1" value="1" step="1" aria-label="Selected turn">
+      </div>
+      <div class="legend" aria-label="Legend">
+        <span class="legend-item"><span class="swatch principal"></span> Principal / Principal Agent</span>
+        <span class="legend-item"><span class="swatch client"></span> Client / Client Agent</span>
+        <span class="legend-item"><span class="swatch unknown"></span> Other Agent</span>
+        <span class="legend-item"><span class="swatch small principal"></span> Principal node</span>
+        <span class="legend-item"><span class="swatch small client"></span> Client node</span>
+        <span class="legend-item"><span class="swatch delta"></span> Current turn delta</span>
+      </div>
       <div id="graph"></div>
     </section>
     <section>
@@ -122,7 +161,7 @@ def _viewer_html(
       <div class="panel-body">
         <div id="run-meta" class="meta"></div>
         <h3>Selected Record</h3>
-        <pre id="details"></pre>
+        <div id="details" class="details-panel"></div>
       </div>
     </section>
   </main>
@@ -140,10 +179,14 @@ def _viewer_html(
     const seed = data('run-seed');
     const initialGraph = data('initial-graph');
     const finalGraph = data('final-graph');
+    const transcript = data('transcript');
     const graphEvents = data('graph-events');
     let selectedEvent = graphEvents[0] || null;
+    let selectedTurnIndex = graphEvents.length ? 0 : -1;
     let currentGraph = 'initial';
+    let autoplayTimer = null;
     const stablePositions = {{}};
+    let currentRenderedGraph = initialGraph;
 
     document.getElementById('run-meta').innerHTML = [
       `<strong>Scenario:</strong> ${{summary.scenario || 'unknown'}}`,
@@ -155,17 +198,41 @@ def _viewer_html(
       container: document.getElementById('graph'),
       elements: [],
       style: [
-        {{ selector: 'node', style: {{ label: 'data(label)', 'background-color': '#4d7cff', color: '#172033', 'font-size': 10 }} }},
+        {{ selector: 'node', style: {{ label: 'data(label)', 'background-color': '#64748b', width: 44, height: 44, color: '#172033', 'font-size': 10 }} }},
+        {{ selector: 'node.client-party', style: {{ 'background-color': '#16a34a', width: 26, height: 26 }} }},
+        {{ selector: 'node.principal-party', style: {{ 'background-color': '#2563eb', width: 26, height: 26 }} }},
+        {{ selector: 'node.client-agent', style: {{ 'background-color': '#16a34a', width: 48, height: 48 }} }},
+        {{ selector: 'node.principal-agent', style: {{ 'background-color': '#2563eb', width: 48, height: 48 }} }},
         {{ selector: 'edge', style: {{ label: 'data(label)', width: 2, 'line-color': '#9aa8c2', 'target-arrow-color': '#9aa8c2', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'font-size': 9 }} }},
-        {{ selector: '.changed', style: {{ 'line-color': '#ff8a00', 'target-arrow-color': '#ff8a00', width: 4 }} }},
-        {{ selector: '.added', style: {{ 'line-color': '#20a464', 'target-arrow-color': '#20a464', width: 4, 'background-color': '#20a464' }} }}
+        {{ selector: '.changed', style: {{ 'line-color': '#dc2626', 'target-arrow-color': '#dc2626', width: 4 }} }},
+        {{ selector: '.added', style: {{ 'line-color': '#dc2626', 'target-arrow-color': '#dc2626', width: 4, 'background-color': '#dc2626' }} }}
       ],
       layout: {{ name: 'preset', animate: false }}
     }});
 
+    function roleMaps(graph) {{
+      const nodeTypes = new Map((graph.nodes || []).map(n => [n.id, n.type]));
+      const agentRoles = new Map();
+      for (const edge of graph.edges || []) {{
+        if (edge.kind !== 'representation') continue;
+        const representedType = edge.details && edge.details.represented_node_type ? edge.details.represented_node_type : nodeTypes.get(edge.target);
+        if (representedType === 'client') agentRoles.set(edge.source, 'client-agent');
+        if (representedType === 'principal') agentRoles.set(edge.source, 'principal-agent');
+      }}
+      return {{ nodeTypes, agentRoles }};
+    }}
+
+    function nodeClasses(node, maps) {{
+      if (node.type === 'client') return 'client-party';
+      if (node.type === 'principal') return 'principal-party';
+      if (node.type === 'agent') return maps.agentRoles.get(node.id) || '';
+      return '';
+    }}
+
     function graphElements(graph) {{
-      const nodes = (graph.nodes || []).map(n => ({{ data: {{ id: n.id, label: n.label || n.id, type: n.type }}, position: stablePositions[n.id] || {{ x: 0, y: 0 }} }}));
-      const edges = (graph.edges || []).map(e => ({{ data: {{ id: e.id, source: e.source, target: e.target, label: `${{e.kind}}:${{e.state || e.label || ''}}`, kind: e.kind }} }}));
+      const maps = roleMaps(graph);
+      const nodes = (graph.nodes || []).map(n => ({{ data: {{ id: n.id, label: n.label || n.id, type: n.type, details: n.details || {{}} }}, classes: nodeClasses(n, maps), position: stablePositions[n.id] || {{ x: 0, y: 0 }} }}));
+      const edges = (graph.edges || []).map(e => ({{ data: {{ id: e.id, source: e.source, target: e.target, label: `${{e.kind}}:${{e.state || e.label || ''}}`, kind: e.kind, state: e.state, details: e.details || {{}} }} }}));
       return nodes.concat(edges);
     }}
 
@@ -208,6 +275,7 @@ def _viewer_html(
     }}
 
     function renderGraph(graph, event=null) {{
+      currentRenderedGraph = graph;
       cy.elements().remove();
       cy.add(graphElements(graph));
       if (event && event.graph_delta) {{
@@ -218,29 +286,289 @@ def _viewer_html(
       cy.layout({{ name: 'preset', animate: false }}).run();
     }}
 
+    function protocolEvents(record) {{
+      return (record && record.protocol_event_delta) || (record && record.event_delta) || [];
+    }}
+
+    function rawDecision(record) {{ return record && record.raw_decision ? record.raw_decision : {{}}; }}
+
+    function escapeHtml(value) {{
+      return String(value ?? '').replace(/[&<>"']/g, char => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }}[char]));
+    }}
+
+    function graphNodeById(nodeId, graph=currentRenderedGraph) {{
+      return (graph.nodes || []).find(node => node.id === nodeId) || (finalGraph.nodes || []).find(node => node.id === nodeId) || (initialGraph.nodes || []).find(node => node.id === nodeId) || null;
+    }}
+
+    function graphEdgeById(edgeId, graph=currentRenderedGraph) {{
+      return (graph.edges || []).find(edge => edge.id === edgeId) || (finalGraph.edges || []).find(edge => edge.id === edgeId) || (initialGraph.edges || []).find(edge => edge.id === edgeId) || null;
+    }}
+
+    function negotiationEdge(negotiationId) {{
+      if (!negotiationId) return null;
+      return graphEdgeById(`negotiation:${{negotiationId}}`);
+    }}
+
+    function negotiationParticipants(negotiationId) {{
+      const edge = negotiationEdge(negotiationId);
+      if (!edge) return {{ from: '', to: '' }};
+      return {{ from: edge.source || (edge.details && edge.details.from_agent_id) || '', to: edge.target || (edge.details && edge.details.to_agent_id) || '' }};
+    }}
+
+    function counterpartyFor(negotiationId, actor) {{
+      const pair = negotiationParticipants(negotiationId);
+      if (pair.from === actor) return pair.to;
+      if (pair.to === actor) return pair.from;
+      return pair.to || pair.from || '';
+    }}
+
+    function recordNegotiationId(record) {{
+      const decision = rawDecision(record);
+      if (record.negotiation_id) return record.negotiation_id;
+      if (decision.negotiation_id) return decision.negotiation_id;
+      const event = protocolEvents(record).find(item => item.negotiation_id);
+      return event ? event.negotiation_id : '';
+    }}
+
+    function recordSubject(record) {{
+      const edge = negotiationEdge(recordNegotiationId(record));
+      return edge && edge.details ? edge.details.subject || {{}} : {{}};
+    }}
+
+    function subjectMentionsNode(subject, nodeId) {{
+      if (!subject || !nodeId) return false;
+      if (Array.isArray(subject)) return subject.some(item => subjectMentionsNode(item, nodeId));
+      if (typeof subject === 'object') {{
+        if (subject.client_id === nodeId || subject.principal_id === nodeId || subject.represented_party_id === nodeId) return true;
+        return Object.values(subject).some(value => subjectMentionsNode(value, nodeId));
+      }}
+      return subject === nodeId;
+    }}
+
+    function relatedRecordsForNode(nodeId) {{
+      const node = graphNodeById(nodeId);
+      return graphEvents.filter(record => {{
+        const decision = rawDecision(record);
+        const events = protocolEvents(record);
+        const subject = recordSubject(record);
+        if (node && (node.type === 'client' || node.type === 'principal') && subjectMentionsNode(subject, nodeId)) return true;
+        return record.actor_agent_id === nodeId ||
+          decision.actor_agent_id === nodeId ||
+          decision.target_agent_id === nodeId ||
+          events.some(event => event.actor_agent_id === nodeId ||
+            (event.payload && (event.payload.from_agent_id === nodeId || event.payload.to_agent_id === nodeId || event.payload.target_agent_id === nodeId)));
+      }});
+    }}
+
+    function relatedRecordsForEdge(edgeData) {{
+      const edgeId = edgeData.id || '';
+      const source = edgeData.source;
+      const target = edgeData.target;
+      const negotiationId = edgeId.startsWith('negotiation:') ? edgeId.slice('negotiation:'.length) : null;
+      return graphEvents.filter(record => {{
+        const decision = rawDecision(record);
+        const events = protocolEvents(record);
+        if (negotiationId && (record.negotiation_id === negotiationId || decision.negotiation_id === negotiationId)) return true;
+        if (decision.target_agent_id && decision.actor_agent_id) {{
+          const pair = new Set([decision.actor_agent_id, decision.target_agent_id]);
+          if (pair.has(source) && pair.has(target)) return true;
+        }}
+        return events.some(event => {{
+          if (negotiationId && event.negotiation_id === negotiationId) return true;
+          const payload = event.payload || {{}};
+          const pair = new Set([payload.from_agent_id, payload.to_agent_id, payload.target_agent_id, event.actor_agent_id]);
+          return pair.has(source) && pair.has(target);
+        }});
+      }});
+    }}
+
+    function inspectNode(node) {{
+      const nodeData = node.data();
+      const related = relatedRecordsForNode(nodeData.id);
+      renderInspection({{
+        inspectedType: 'node',
+        title: nodeData.label || nodeData.id,
+        summary: [
+          ['ID', nodeData.id],
+          ['Name', nodeData.label || nodeData.id],
+          ['Role', nodeData.type],
+          ['Details', JSON.stringify(nodeData.details || {{}})],
+        ],
+        related,
+        raw: {{ inspected_type: 'node', node: nodeData, related_turn_count: related.length, related_turns: related }},
+      }});
+    }}
+
+    function inspectEdge(edge) {{
+      const edgeData = edge.data();
+      const related = relatedRecordsForEdge(edgeData);
+      renderInspection({{
+        inspectedType: 'edge',
+        title: edgeData.label || edgeData.id,
+        summary: [
+          ['ID', edgeData.id],
+          ['Kind', edgeData.kind],
+          ['State', edgeData.state || 'n/a'],
+          ['From', edgeData.source],
+          ['To', edgeData.target],
+        ],
+        related,
+        raw: {{ inspected_type: 'edge', edge: edgeData, related_turn_count: related.length, related_turns: related }},
+      }});
+    }}
+
+    function protocolSignalRows(record) {{
+      const events = protocolEvents(record);
+      if (events.length) return events.map(event => {{
+        const from = event.actor_agent_id || '';
+        const to = counterpartyFor(event.negotiation_id, from);
+        const payload = event.payload || {{}};
+        return {{
+          turn: record.turn,
+          signal: event.type || 'protocol_event',
+          from,
+          to,
+          message: payload.body || payload.reason || (payload.proposal && (payload.proposal.summary || payload.proposal.details)) || '',
+          raw: event,
+        }};
+      }});
+      const decision = rawDecision(record);
+      const from = decision.actor_agent_id || record.actor_agent_id || '';
+      return [{{
+        turn: record.turn,
+        signal: decision.action || 'decision',
+        from,
+        to: decision.target_agent_id || counterpartyFor(decision.negotiation_id || record.negotiation_id, from),
+        message: decision.body || decision.reason || (decision.proposal && (decision.proposal.summary || decision.proposal.details)) || '',
+        raw: decision,
+      }}];
+    }}
+
+    function timelineHtml(records) {{
+      if (!records.length) return '<div class="muted">No related protocol events found.</div>';
+      return records.flatMap(protocolSignalRows).map(row => `
+        <div class="event-card">
+          <div class="event-meta">Turn ${{escapeHtml(row.turn)}} · <strong>${{escapeHtml(row.signal)}}</strong></div>
+          <div><strong>From:</strong> ${{escapeHtml(row.from || 'n/a')}} <strong>To:</strong> ${{escapeHtml(row.to || 'n/a')}}</div>
+          ${{row.message ? `<div class="event-message">${{escapeHtml(row.message)}}</div>` : ''}}
+        </div>`).join('');
+    }}
+
+    function summaryHtml(rows) {{
+      return `<dl>${{rows.map(([key, value]) => `<dt>${{escapeHtml(key)}}</dt><dd>${{escapeHtml(value)}}</dd>`).join('')}}</dl>`;
+    }}
+
+    function renderInspection({{ inspectedType, title, summary, related, raw }}) {{
+      document.getElementById('details').innerHTML = `
+        <div class="object-summary">
+          <div class="muted">Inspecting ${{escapeHtml(inspectedType)}}</div>
+          <h3>${{escapeHtml(title)}}</h3>
+          ${{summaryHtml(summary)}}
+        </div>
+        <div>
+          <h3>Related Protocol Timeline</h3>
+          ${{timelineHtml(related)}}
+        </div>
+        <details class="debug-json">
+          <summary>Raw JSON</summary>
+          <pre>${{escapeHtml(JSON.stringify(raw, null, 2))}}</pre>
+        </details>`;
+    }}
+
+    function renderSelectedTurnDetails() {{
+      const record = selectedEvent || summary;
+      renderInspection({{
+        inspectedType: 'turn',
+        title: selectedEvent ? `Turn ${{selectedEvent.turn || selectedTurnIndex + 1}}` : 'Run Summary',
+        summary: selectedEvent ? [
+          ['Turn', selectedEvent.turn || selectedTurnIndex + 1],
+          ['Actor', selectedEvent.actor_agent_id || 'n/a'],
+          ['Negotiation', selectedEvent.negotiation_id || 'n/a'],
+          ['Action', rawDecision(selectedEvent).action || 'n/a'],
+        ] : [['Scenario', summary.scenario || 'unknown']],
+        related: selectedEvent ? [selectedEvent] : [],
+        raw: record,
+      }});
+    }}
+
     function renderTimeline() {{
       const root = document.getElementById('timeline');
       root.innerHTML = '';
       graphEvents.forEach((event, index) => {{
         const action = event.raw_decision && event.raw_decision.action ? event.raw_decision.action : 'unknown';
         const button = document.createElement('button');
-        button.className = 'timeline-item' + (event === selectedEvent ? ' active' : '');
+        button.className = 'timeline-item' + (index === selectedTurnIndex ? ' active' : '');
         button.textContent = `Turn ${{event.turn || index + 1}}: ${{event.actor_agent_id || 'unknown'}} → ${{action}}`;
-        button.onclick = () => {{ selectedEvent = event; currentGraph = 'selected'; renderAll(); }};
+        button.onclick = () => selectTurn(index);
         root.appendChild(button);
       }});
+    }}
+
+    function selectTurn(index) {{
+      if (!graphEvents.length) return;
+      selectedTurnIndex = Math.max(0, Math.min(index, graphEvents.length - 1));
+      selectedEvent = graphEvents[selectedTurnIndex];
+      currentGraph = 'selected';
+      renderAll();
+    }}
+
+    function updateTurnControls() {{
+      const slider = document.getElementById('turn-slider');
+      const previous = document.getElementById('previous-turn');
+      const next = document.getElementById('next-turn');
+      const position = document.getElementById('turn-position');
+      const count = graphEvents.length;
+      slider.max = Math.max(count, 1);
+      slider.value = selectedTurnIndex >= 0 ? selectedTurnIndex + 1 : 1;
+      slider.disabled = count === 0;
+      previous.disabled = count === 0 || selectedTurnIndex <= 0;
+      next.disabled = count === 0 || selectedTurnIndex >= count - 1;
+      position.textContent = count ? `${{selectedTurnIndex + 1}} / ${{count}}` : '0 / 0';
+      document.getElementById('autoplay-turns').textContent = autoplayTimer ? 'Pause' : 'Auto-play';
+    }}
+
+    function toggleAutoplay() {{
+      if (autoplayTimer) {{
+        clearInterval(autoplayTimer);
+        autoplayTimer = null;
+        renderAll();
+        return;
+      }}
+      if (!graphEvents.length) return;
+      currentGraph = 'selected';
+      autoplayTimer = setInterval(() => {{
+        if (selectedTurnIndex >= graphEvents.length - 1) {{
+          clearInterval(autoplayTimer);
+          autoplayTimer = null;
+          renderAll();
+          return;
+        }}
+        selectTurn(selectedTurnIndex + 1);
+      }}, 900);
+      renderAll();
     }}
 
     function setMode(mode) {{ currentGraph = mode; renderAll(); }}
     document.getElementById('show-initial').onclick = () => setMode('initial');
     document.getElementById('show-final').onclick = () => setMode('final');
     document.getElementById('show-selected').onclick = () => setMode('selected');
+    document.getElementById('previous-turn').onclick = () => selectTurn(selectedTurnIndex - 1);
+    document.getElementById('next-turn').onclick = () => selectTurn(selectedTurnIndex + 1);
+    document.getElementById('autoplay-turns').onclick = toggleAutoplay;
+    document.getElementById('turn-slider').oninput = event => selectTurn(Number(event.target.value) - 1);
+
+    cy.on('tap', 'node', event => inspectNode(event.target));
+    cy.on('tap', 'edge', event => inspectEdge(event.target));
+    cy.on('tap', event => {{
+      if (event.target === cy) renderSelectedTurnDetails();
+    }});
 
     function renderAll() {{
       for (const id of ['show-initial', 'show-final', 'show-selected']) document.getElementById(id).classList.remove('active');
       document.getElementById(`show-${{currentGraph}}`).classList.add('active');
       renderTimeline();
-      document.getElementById('details').textContent = JSON.stringify(selectedEvent || summary, null, 2);
+      updateTurnControls();
+      renderSelectedTurnDetails();
       if (currentGraph === 'initial') renderGraph(initialGraph);
       else if (currentGraph === 'final') renderGraph(finalGraph);
       else renderGraph(graphAtTurn(selectedEvent), selectedEvent);

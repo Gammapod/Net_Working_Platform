@@ -35,11 +35,37 @@ def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path)
     assert "Final Graph" in html
     assert "Selected Turn State" in html
     assert "Timeline" in html
+    assert "Legend" in html
+    assert "Principal / Principal Agent" in html
+    assert "Client / Client Agent" in html
     assert "Turn Details" in html
+    assert "◀" in html
+    assert "▶" in html
+    assert "Auto-play" in html
+    assert "turn-slider" in html
+    assert "turn-position" in html
     assert "function graphAtTurn" in html
     assert "function applyGraphDelta" in html
+    assert "function nodeClasses" in html
+    assert "function roleMaps" in html
+    assert "function selectTurn" in html
+    assert "function toggleAutoplay" in html
+    assert "function inspectNode" in html
+    assert "function inspectEdge" in html
+    assert "function relatedRecordsForNode" in html
+    assert "function relatedRecordsForEdge" in html
+    assert "Related Protocol Timeline" in html
+    assert "Raw JSON" in html
+    assert "function protocolSignalRows" in html
+    assert "function renderInspection" in html
+    assert "function renderSelectedTurnDetails" in html
+    assert "function subjectMentionsNode" in html
+    assert "represented_party_id" in html
+    assert "cy.on('tap', 'node'" in html
+    assert "cy.on('tap', 'edge'" in html
     assert "const stablePositions" in html
     assert "layout: { name: 'preset'" in html
+    assert "#dc2626" in html
 
 
 def test_export_run_viewer_can_write_custom_output_file(tmp_path: Path) -> None:
