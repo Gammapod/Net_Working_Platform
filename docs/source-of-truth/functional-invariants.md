@@ -430,6 +430,16 @@ Protected by:
 
 - `test_unified_experiment_runner_writes_graph_event_timeline`
 
+### INV-X-004: Run Viewer Exports Are Static Artifact Consumers
+
+Run viewer exports must consume existing run artifacts without mutating protocol state, databases, seeds, transcripts, timeline files, or graph snapshots. The first viewer export may be a static HTML file, but it must embed or reference structured run data, expose initial/final graph data, expose timeline records, and provide inspectable per-turn details for future frontend refinement.
+
+Protected by:
+
+- `test_export_run_viewer_writes_static_html_from_run_artifacts`
+- `test_export_run_viewer_can_write_custom_output_file`
+- `test_export_run_viewer_reports_missing_run_artifacts`
+
 ## Test Traceability
 
 | Test | Invariants |
@@ -541,3 +551,6 @@ Protected by:
 | `test_unified_experiment_runner_rejects_unsupported_seed_version` | INV-X-001 |
 | `test_unified_experiment_runner_imports_editable_graph_seed` | INV-X-002 |
 | `test_unified_experiment_runner_writes_graph_event_timeline` | INV-X-003 |
+| `test_export_run_viewer_writes_static_html_from_run_artifacts` | INV-X-004 |
+| `test_export_run_viewer_can_write_custom_output_file` | INV-X-004 |
+| `test_export_run_viewer_reports_missing_run_artifacts` | INV-X-004 |

@@ -188,6 +188,15 @@ python -m scripts.dev.run_experiment --seed seeds/editable-marketing-demo.json -
 
 For now, editable graph seeds support nodes, representation edges, active agent connections, requested/open initial negotiations, and protocol-valid scripted turns. This is intentionally small so users can copy a seed, change IDs/facts/messages, and inspect the resulting artifacts before a full test-data editor exists. Editable graph runs include graph deltas in `graph_events.jsonl`; the scaled wrapper includes protocol-event deltas and reserves empty graph-delta sections until full replay support is added.
 
+Generate a static HTML viewer for any run folder:
+
+```powershell
+python -m scripts.dev.run_experiment --seed seeds/editable-marketing-demo.json --output-dir runs/editable-demo --reset-db
+python -m scripts.dev.export_run_viewer --run-dir runs/editable-demo
+```
+
+Open `runs/editable-demo/viewer.html` in a browser. The first viewer is intentionally no-build and static: it uses Cytoscape.js from a CDN for graph rendering, embeds the run artifacts into the HTML file, and provides initial/final graph views, a turn timeline, selected-turn details, and highlighted graph deltas. This keeps the demo easy to share while leaving room to replace the UI with a richer frontend later.
+
 ## Not Yet Added
 
 Still missing or intentionally deferred for MVP completion:

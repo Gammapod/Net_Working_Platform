@@ -78,6 +78,17 @@ class MarketScenario:
 
 
 @dataclass(frozen=True)
+class ViewerShowcaseScenario:
+    db_url: str
+    client_agent_ids: tuple[str, ...]
+    principal_agent_ids: tuple[str, ...]
+    agent_fields: dict[str, str]
+    represented_types: dict[str, str]
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]]
+    strategy_priorities: dict[str, dict[str, object]]
+
+
+@dataclass(frozen=True)
 class PairwiseStrategyScenario:
     db_url: str
     client_agent_id: str
@@ -1277,6 +1288,195 @@ def _pairwise_fact_profiles_by_agent() -> dict[str, list[RepresentedPartyProfile
             )
         ],
     }
+
+
+def seed_viewer_showcase_scenario(db_url: str) -> ViewerShowcaseScenario:
+    """Create a 10-agent, no-contact showcase market for graph viewer experiments.
+
+    The scenario is intentionally exploratory: it seeds field-labeled weak
+    discovery opportunities and multi-party representative portfolios without
+    choosing a preferred market outcome.
+    """
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    client_agent_ids = tuple(f"showcase_client_agent_{index}" for index in range(1, 6))
+    principal_agent_ids = tuple(f"showcase_principal_agent_{index}" for index in range(1, 6))
+    agent_fields = {
+        "showcase_client_agent_1": "marketing",
+        "showcase_client_agent_2": "marketing",
+        "showcase_client_agent_3": "programming",
+        "showcase_client_agent_4": "programming",
+        "showcase_client_agent_5": "art",
+        "showcase_principal_agent_1": "marketing",
+        "showcase_principal_agent_2": "marketing",
+        "showcase_principal_agent_3": "programming",
+        "showcase_principal_agent_4": "programming",
+        "showcase_principal_agent_5": "art",
+    }
+    represented_types = {agent_id: "client" for agent_id in client_agent_ids} | {
+        agent_id: "principal" for agent_id in principal_agent_ids
+    }
+    strategy_priorities: dict[str, dict[str, object]] = {}
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]] = {}
+
+    client_profiles = [
+        ("showcase_client_agent_1", "CLIENT-FAST-ANY", [
+            _showcase_client("showcase_client_1a", "marketing", "lifecycle email operator", "HubSpot, retention campaigns", "can start immediately"),
+            _showcase_client("showcase_client_1b", "marketing", "paid social analyst", "Meta/TikTok testing, ROAS reporting", "prefers contract-to-hire"),
+        ]),
+        ("showcase_client_agent_2", "CLIENT-INCOME-FIELD", [
+            _showcase_client("showcase_client_2a", "marketing", "brand strategist", "launch positioning, creator partnerships", "seeks senior IC compensation"),
+            _showcase_client("showcase_client_2b", "marketing", "marketing ops specialist", "automation, attribution hygiene", "remote-first only"),
+            _showcase_client("showcase_client_2c", "marketing", "content designer", "B2B editorial calendars, conversion copy", "needs flexible schedule"),
+        ]),
+        ("showcase_client_agent_3", "CLIENT-FAST-ANY", [
+            _showcase_client("showcase_client_3a", "programming", "backend Python engineer", "FastAPI, Postgres, data APIs", "available in two weeks"),
+            _showcase_client("showcase_client_3b", "programming", "frontend engineer", "React, design systems, accessibility", "open to hybrid"),
+        ]),
+        ("showcase_client_agent_4", "CLIENT-INCOME-FIELD", [
+            _showcase_client("showcase_client_4a", "programming", "data platform engineer", "Airflow, dbt, warehouse modeling", "prioritizes salary band"),
+            _showcase_client("showcase_client_4b", "programming", "ML tooling engineer", "evaluation harnesses, Python, notebooks", "wants research-adjacent team"),
+            _showcase_client("showcase_client_4c", "programming", "security engineer", "appsec reviews, threat modeling", "requires strong benefits"),
+        ]),
+        ("showcase_client_agent_5", "CLIENT-FAST-ANY", [
+            _showcase_client("showcase_client_5a", "art", "illustrator", "editorial illustration, character work", "available for project work"),
+            _showcase_client("showcase_client_5b", "art", "motion designer", "After Effects, social launch assets", "prefers short cycles"),
+        ]),
+    ]
+    principal_profiles = [
+        ("showcase_principal_agent_1", "PRINCIPAL-FAST-MINIMUMS", [
+            _showcase_principal("showcase_principal_1a", "marketing", "growth marketing pod", "retention campaigns", "ship lifecycle experiments this quarter"),
+            _showcase_principal("showcase_principal_1b", "marketing", "DTC paid acquisition team", "paid social testing", "fill campaign analyst gap quickly"),
+        ]),
+        ("showcase_principal_agent_2", "PRINCIPAL-CREDENTIAL-MAX", [
+            _showcase_principal("showcase_principal_2a", "marketing", "B2B brand team", "positioning and executive storytelling", "needs portfolio-backed senior judgment"),
+            _showcase_principal("showcase_principal_2b", "marketing", "revops group", "automation and attribution", "requires tooling evidence"),
+            _showcase_principal("showcase_principal_2c", "marketing", "content studio", "technical content design", "prefers domain examples"),
+        ]),
+        ("showcase_principal_agent_3", "PRINCIPAL-FAST-MINIMUMS", [
+            _showcase_principal("showcase_principal_3a", "programming", "API platform team", "Python services", "needs immediate feature velocity"),
+            _showcase_principal("showcase_principal_3b", "programming", "frontend systems team", "React accessibility", "needs delivery within two sprints"),
+        ]),
+        ("showcase_principal_agent_4", "PRINCIPAL-CREDENTIAL-MAX", [
+            _showcase_principal("showcase_principal_4a", "programming", "data infrastructure org", "warehouse reliability", "values evidence of production ownership"),
+            _showcase_principal("showcase_principal_4b", "programming", "AI evaluation lab", "model eval tooling", "requires rigorous experiment habits"),
+            _showcase_principal("showcase_principal_4c", "programming", "security product group", "application security", "needs clear threat-modeling experience"),
+        ]),
+        ("showcase_principal_agent_5", "PRINCIPAL-FAST-MINIMUMS", [
+            _showcase_principal("showcase_principal_5a", "art", "editorial art desk", "illustration packages", "needs fast contributor bench"),
+            _showcase_principal("showcase_principal_5b", "art", "launch creative studio", "motion/social assets", "prioritizes deadline fit"),
+        ]),
+    ]
+
+    all_profiles = client_profiles + principal_profiles
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        reps = SqlRepresentationEdgeRepository(connection)
+        weak = SqlWeakDiscoveryEdgeRepository(connection)
+        for agent_id, strategy_id, profiles in all_profiles:
+            nodes.add(Node(agent_id, NodeType.AGENT), display_name=agent_id.replace("_", " ").title())
+            represented_portfolios[agent_id] = tuple(profiles)
+            strategy_priorities[agent_id] = _showcase_strategy_priority(strategy_id)
+            for profile in profiles:
+                represented_id = str(profile["represented_party_id"])
+                represented_type = NodeType.CLIENT if profile["represented_party_type"] == "client" else NodeType.PRINCIPAL
+                nodes.add(Node(represented_id, represented_type), display_name=str(profile["display_name"]))
+                reps.add(RepresentationEdge(agent_id, represented_id, represented_type, RepresentationState.ACTIVE))
+
+        for from_agent_id, from_field in agent_fields.items():
+            for to_agent_id, to_field in agent_fields.items():
+                if from_agent_id == to_agent_id or from_field != to_field:
+                    continue
+                if represented_types[from_agent_id] == represented_types[to_agent_id]:
+                    continue
+                weak.add(
+                    WeakDiscoveryEdge(
+                        from_agent_id=from_agent_id,
+                        to_agent_id=to_agent_id,
+                        field=from_field,
+                        state=WeakDiscoveryState.AVAILABLE,
+                        rationale={
+                            "reason": "viewer_showcase_same_field",
+                            "field": from_field,
+                            "target_represented_type": represented_types[to_agent_id],
+                            "target_strategy_id": strategy_priorities[to_agent_id]["strategy_id"],
+                            "target_portfolio_size": len(represented_portfolios[to_agent_id]),
+                        },
+                    )
+                )
+
+    return ViewerShowcaseScenario(
+        db_url=db_url,
+        client_agent_ids=client_agent_ids,
+        principal_agent_ids=principal_agent_ids,
+        agent_fields=agent_fields,
+        represented_types=represented_types,
+        represented_portfolios=represented_portfolios,
+        strategy_priorities=strategy_priorities,
+    )
+
+
+def _showcase_client(
+    represented_party_id: str,
+    field: str,
+    target_role: str,
+    evidence: str,
+    priority: str,
+) -> dict[str, object]:
+    return {
+        "represented_party_id": represented_party_id,
+        "represented_party_type": "client",
+        "display_name": represented_party_id.replace("_", " ").title(),
+        "field": field,
+        "target_role": target_role,
+        "evidence": evidence,
+        "priority": priority,
+    }
+
+
+def _showcase_principal(
+    represented_party_id: str,
+    field: str,
+    role_family: str,
+    need: str,
+    priority: str,
+) -> dict[str, object]:
+    return {
+        "represented_party_id": represented_party_id,
+        "represented_party_type": "principal",
+        "display_name": represented_party_id.replace("_", " ").title(),
+        "field": field,
+        "role_family": role_family,
+        "need": need,
+        "priority": priority,
+    }
+
+
+def _showcase_strategy_priority(strategy_id: str) -> dict[str, object]:
+    strategies = {
+        "CLIENT-FAST-ANY": {
+            "strategy_id": "CLIENT-FAST-ANY",
+            "role": "client",
+            "priority": "move quickly toward any plausible same-field opportunity",
+        },
+        "CLIENT-INCOME-FIELD": {
+            "strategy_id": "CLIENT-INCOME-FIELD",
+            "role": "client",
+            "priority": "prioritize field fit, compensation, evidence, and durable upside",
+        },
+        "PRINCIPAL-FAST-MINIMUMS": {
+            "strategy_id": "PRINCIPAL-FAST-MINIMUMS",
+            "role": "principal",
+            "priority": "move quickly once minimum field and availability signals are present",
+        },
+        "PRINCIPAL-CREDENTIAL-MAX": {
+            "strategy_id": "PRINCIPAL-CREDENTIAL-MAX",
+            "role": "principal",
+            "priority": "prefer clear evidence, credentials, and portfolio-backed fit before advancing",
+        },
+    }
+    return strategies[strategy_id]
 
 
 def _market_role(client_index: int, principal_index: int) -> str:

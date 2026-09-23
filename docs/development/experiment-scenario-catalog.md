@@ -137,6 +137,32 @@ Exploratory questions:
 - Do focus guards and transcript summaries remain reliable at scale?
 - What action distributions emerge under different bandwidth/contact limits?
 
+### Viewer Showcase Market
+
+Seeder: `seed_viewer_showcase_scenario`
+
+Purpose:
+
+- Provide a reusable larger graph for exercising the structured run artifacts and static HTML viewer.
+- Start from a portfolio-rich market with weak discovery opportunities but no existing active contacts.
+- Let LLM-backed agents create contacts, request negotiations, and change graph shape over a short showcase run.
+
+Stable fixture pattern:
+
+- Client representative agents: `showcase_client_agent_1` through `showcase_client_agent_5`.
+- Principal representative agents: `showcase_principal_agent_1` through `showcase_principal_agent_5`.
+- Each representative agent has 2-3 represented clients or principals.
+- Portfolio fields span marketing, programming, and art.
+- Client strategy priorities use `CLIENT-FAST-ANY` and `CLIENT-INCOME-FIELD`.
+- Principal strategy priorities use `PRINCIPAL-FAST-MINIMUMS` and `PRINCIPAL-CREDENTIAL-MAX`.
+- Initial active agent contacts: none.
+
+Exploratory questions:
+
+- Is the HTML viewer usable once the graph has dozens of nodes and a growing mix of representation, contact, and negotiation edges?
+- Do run artifacts make the graph's before/after evolution easy to inspect without treating any match as correct?
+- Are portfolio facts and strategy priorities sufficient context for LLM-backed discovery and negotiation-opening behavior?
+
 ### Pairwise Strategy Scenario
 
 Seeder: `seed_pairwise_strategy_scenario`
@@ -368,3 +394,5 @@ The `seeds/` directory contains user-facing JSON seeds for the unified runner:
 Editable graph seeds currently support the `editable_graph_scripted` experiment kind. This is a lightweight bridge toward user-editable test data; richer profiles, reusable catalogs, and non-scripted policies should build on the same versioned seed-file approach rather than adding hidden Python-only fixtures.
 
 Unified runner outputs include `graph_events.jsonl`, a timeline-oriented JSONL artifact with one record per turn. Each record carries the raw decision, validation result, protocol event deltas, and graph-visible deltas when the runner captures per-turn snapshots. This is the first replay/viewer contract; it is descriptive observation data and must not be treated as a source of protocol truth independent of `protocol_events` and the functional invariants.
+
+Run folders can be exported to a static HTML viewer with `scripts.dev.export_run_viewer`. The first viewer deliberately avoids a frontend build system and uses Cytoscape.js from a CDN, which is a standard lightweight graph-viewing option for node/edge inspection. The export consumes existing artifacts only; it does not run experiments, mutate databases, or reinterpret exploratory outcomes as protocol behavior.
