@@ -36,6 +36,8 @@ def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path)
     assert '<script id="final-graph" type="application/json">' in html
     assert '<script id="graph-events" type="application/json">' in html
     assert '<script id="viewer-model" type="application/json">' in html
+    assert "const viewerTurns = viewerModel.turns || graphEvents" in html
+    assert "const initialGraph = (viewerModel.graph && viewerModel.graph.initial)" in html
     assert "editable-marketing-demo" in html
     assert "negotiation_editable_alpha_beta" in html
     assert "Client Alpha has lifecycle marketing experience" in html
@@ -62,13 +64,13 @@ def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path)
     assert "function inspectEdge" in html
     assert "function relatedRecordsForNode" in html
     assert "function relatedRecordsForEdge" in html
+    assert "function turnsFromTimelineIndexes" in html
+    assert "viewerModel.object_timelines" in html
     assert "Related Protocol Timeline" in html
     assert "Raw JSON" in html
     assert "function protocolSignalRows" in html
     assert "function renderInspection" in html
     assert "function renderSelectedTurnDetails" in html
-    assert "function subjectMentionsNode" in html
-    assert "represented_party_id" in html
     assert "cy.on('tap', 'node'" in html
     assert "cy.on('tap', 'edge'" in html
     assert "const stablePositions" in html

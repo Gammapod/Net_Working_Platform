@@ -188,15 +188,16 @@ def _viewer_html(
   <script id="viewer-model" type="application/json">{_json_script(viewer_model)}</script>
   <script>
     const data = id => JSON.parse(document.getElementById(id).textContent);
-    const summary = data('run-summary');
-    const seed = data('run-seed');
-    const initialGraph = data('initial-graph');
-    const finalGraph = data('final-graph');
+    const viewerModel = data('viewer-model');
+    const summary = viewerModel.summary || data('run-summary');
+    const seed = viewerModel.seed || data('run-seed');
+    const initialGraph = (viewerModel.graph && viewerModel.graph.initial) || data('initial-graph');
+    const finalGraph = (viewerModel.graph && viewerModel.graph.final) || data('final-graph');
     const transcript = data('transcript');
     const graphEvents = data('graph-events');
-    const viewerModel = data('viewer-model');
-    let selectedEvent = graphEvents[0] || null;
-    let selectedTurnIndex = graphEvents.length ? 0 : -1;
+    const viewerTurns = viewerModel.turns || graphEvents;
+    let selectedEvent = viewerTurns[0] || null;
+    let selectedTurnIndex = viewerTurns.length ? 0 : -1;
     let currentGraph = 'initial';
     let autoplayTimer = null;
     const stablePositions = {{}};
@@ -205,7 +206,7 @@ def _viewer_html(
     document.getElementById('run-meta').innerHTML = [
       `<strong>Scenario:</strong> ${{summary.scenario || 'unknown'}}`,
       `<strong>Seed:</strong> ${{summary.seed_id || seed.id || 'n/a'}}`,
-      `<strong>Turns:</strong> ${{summary.turns_executed || summary.turns || graphEvents.length}}`,
+      `<strong>Turns:</strong> ${{summary.turns_executed || summary.turns || viewerTurns.length}}`,
     ].join('');
 
     const cy = cytoscape({{
@@ -268,7 +269,7 @@ def _viewer_html(
 
     function graphAtTurn(targetEvent) {{
       let graph = cloneGraph(initialGraph);
-      for (const event of graphEvents) {{
+      for (const event of viewerTurns) {{
         graph = applyGraphDelta(graph, event.graph_delta || {{}});
         if (event === targetEvent) break;
       }}
@@ -301,10 +302,10 @@ def _viewer_html(
     }}
 
     function protocolEvents(record) {{
-      return (record && record.protocol_event_delta) || (record && record.event_delta) || [];
+      return (record && record.protocol_event_delta) || (record && record.event_delta) || (record && record.raw_record && record.raw_record.protocol_event_delta) || [];
     }}
 
-    function rawDecision(record) {{ return record && record.raw_decision ? record.raw_decision : {{}}; }}
+    function rawDecision(record) {{ return record && record.raw_decision ? record.raw_decision : (record && record.raw_record && record.raw_record.raw_decision ? record.raw_record.raw_decision : {{}}); }}
 
     function escapeHtml(value) {{
       return String(value ?? '').replace(/[&<>"']/g, char => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }}[char]));
@@ -336,64 +337,16 @@ def _viewer_html(
       return pair.to || pair.from || '';
     }}
 
-    function recordNegotiationId(record) {{
-      const decision = rawDecision(record);
-      if (record.negotiation_id) return record.negotiation_id;
-      if (decision.negotiation_id) return decision.negotiation_id;
-      const event = protocolEvents(record).find(item => item.negotiation_id);
-      return event ? event.negotiation_id : '';
-    }}
-
-    function recordSubject(record) {{
-      const edge = negotiationEdge(recordNegotiationId(record));
-      return edge && edge.details ? edge.details.subject || {{}} : {{}};
-    }}
-
-    function subjectMentionsNode(subject, nodeId) {{
-      if (!subject || !nodeId) return false;
-      if (Array.isArray(subject)) return subject.some(item => subjectMentionsNode(item, nodeId));
-      if (typeof subject === 'object') {{
-        if (subject.client_id === nodeId || subject.principal_id === nodeId || subject.represented_party_id === nodeId) return true;
-        return Object.values(subject).some(value => subjectMentionsNode(value, nodeId));
-      }}
-      return subject === nodeId;
+    function turnsFromTimelineIndexes(indexes) {{
+      return (indexes || []).map(index => viewerTurns[index] || graphEvents[index]).filter(Boolean);
     }}
 
     function relatedRecordsForNode(nodeId) {{
-      const node = graphNodeById(nodeId);
-      return graphEvents.filter(record => {{
-        const decision = rawDecision(record);
-        const events = protocolEvents(record);
-        const subject = recordSubject(record);
-        if (node && (node.type === 'client' || node.type === 'principal') && subjectMentionsNode(subject, nodeId)) return true;
-        return record.actor_agent_id === nodeId ||
-          decision.actor_agent_id === nodeId ||
-          decision.target_agent_id === nodeId ||
-          events.some(event => event.actor_agent_id === nodeId ||
-            (event.payload && (event.payload.from_agent_id === nodeId || event.payload.to_agent_id === nodeId || event.payload.target_agent_id === nodeId)));
-      }});
+      return turnsFromTimelineIndexes(((viewerModel.object_timelines || {{}}).nodes || {{}})[nodeId]);
     }}
 
     function relatedRecordsForEdge(edgeData) {{
-      const edgeId = edgeData.id || '';
-      const source = edgeData.source;
-      const target = edgeData.target;
-      const negotiationId = edgeId.startsWith('negotiation:') ? edgeId.slice('negotiation:'.length) : null;
-      return graphEvents.filter(record => {{
-        const decision = rawDecision(record);
-        const events = protocolEvents(record);
-        if (negotiationId && (record.negotiation_id === negotiationId || decision.negotiation_id === negotiationId)) return true;
-        if (decision.target_agent_id && decision.actor_agent_id) {{
-          const pair = new Set([decision.actor_agent_id, decision.target_agent_id]);
-          if (pair.has(source) && pair.has(target)) return true;
-        }}
-        return events.some(event => {{
-          if (negotiationId && event.negotiation_id === negotiationId) return true;
-          const payload = event.payload || {{}};
-          const pair = new Set([payload.from_agent_id, payload.to_agent_id, payload.target_agent_id, event.actor_agent_id]);
-          return pair.has(source) && pair.has(target);
-        }});
-      }});
+      return turnsFromTimelineIndexes(((viewerModel.object_timelines || {{}}).edges || {{}})[edgeData.id]);
     }}
 
     function inspectNode(node) {{
@@ -432,6 +385,14 @@ def _viewer_html(
     }}
 
     function protocolSignalRows(record) {{
+      if (record && Array.isArray(record.protocol_signals)) return record.protocol_signals.map(signal => ({{
+        turn: record.turn,
+        signal: signal.type || record.action || 'protocol_signal',
+        from: signal.from_agent_id || '',
+        to: signal.to_agent_id || '',
+        message: signal.message || '',
+        raw: signal,
+      }}));
       const events = protocolEvents(record);
       if (events.length) return events.map(event => {{
         const from = event.actor_agent_id || '';
@@ -508,8 +469,8 @@ def _viewer_html(
     function renderTimeline() {{
       const root = document.getElementById('timeline');
       root.innerHTML = '';
-      graphEvents.forEach((event, index) => {{
-        const action = event.raw_decision && event.raw_decision.action ? event.raw_decision.action : 'unknown';
+      viewerTurns.forEach((event, index) => {{
+        const action = event.action || (event.raw_decision && event.raw_decision.action) || 'unknown';
         const button = document.createElement('button');
         button.className = 'timeline-item' + (index === selectedTurnIndex ? ' active' : '');
         button.textContent = `Turn ${{event.turn || index + 1}}: ${{event.actor_agent_id || 'unknown'}} → ${{action}}`;
@@ -519,9 +480,9 @@ def _viewer_html(
     }}
 
     function selectTurn(index) {{
-      if (!graphEvents.length) return;
-      selectedTurnIndex = Math.max(0, Math.min(index, graphEvents.length - 1));
-      selectedEvent = graphEvents[selectedTurnIndex];
+      if (!viewerTurns.length) return;
+      selectedTurnIndex = Math.max(0, Math.min(index, viewerTurns.length - 1));
+      selectedEvent = viewerTurns[selectedTurnIndex];
       currentGraph = 'selected';
       renderAll();
     }}
@@ -531,7 +492,7 @@ def _viewer_html(
       const previous = document.getElementById('previous-turn');
       const next = document.getElementById('next-turn');
       const position = document.getElementById('turn-position');
-      const count = graphEvents.length;
+      const count = viewerTurns.length;
       slider.max = Math.max(count, 1);
       slider.value = selectedTurnIndex >= 0 ? selectedTurnIndex + 1 : 1;
       slider.disabled = count === 0;
@@ -548,10 +509,10 @@ def _viewer_html(
         renderAll();
         return;
       }}
-      if (!graphEvents.length) return;
+      if (!viewerTurns.length) return;
       currentGraph = 'selected';
       autoplayTimer = setInterval(() => {{
-        if (selectedTurnIndex >= graphEvents.length - 1) {{
+        if (selectedTurnIndex >= viewerTurns.length - 1) {{
           clearInterval(autoplayTimer);
           autoplayTimer = null;
           renderAll();
