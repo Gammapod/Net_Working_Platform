@@ -12,7 +12,7 @@ from net_working_platform.storage.services import create_sql_discovery_service
 
 
 def test_weak_discovery_scenario_allows_same_field_probe_and_connection(tmp_path: Path) -> None:
-    """Protects INV-D-001, INV-D-002, and INV-G-001."""
+    """Exploratory fixture smoke test; discovery invariants are protected by service tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'weak_discovery.db'}"
     scenario = seed_weak_discovery_scenario(db_url)
     engine = create_engine(db_url)
@@ -74,7 +74,7 @@ def test_weak_discovery_scenario_allows_same_field_probe_and_connection(tmp_path
 
 
 def test_weak_discovery_scenario_blocks_cross_field_probe_and_connection(tmp_path: Path) -> None:
-    """Protects INV-D-001 and INV-D-002."""
+    """Exploratory fixture smoke test; discovery invariants are protected by service tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'weak_discovery.db'}"
     scenario = seed_weak_discovery_scenario(db_url)
     engine = create_engine(db_url)

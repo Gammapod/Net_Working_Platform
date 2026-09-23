@@ -1017,3 +1017,213 @@ Follow-ups:
 
 - Add a marginal-fit scenario to find the acceptance threshold between obvious accept and obvious reject.
 - Consider persisting partial-topic proposal/rejection as pre-negotiation contact events if this flow becomes product behavior rather than only experiment harness behavior.
+
+## 2026-09-22: Ad Hoc Multi-Contact Portfolio Choice Smoke Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through a temporary ad hoc script using existing weak discovery and `request_contact` execution.
+
+Scenario/matrix:
+
+- Scheduled actor: `client_portfolio_agent`.
+- Actor represented three marketing clients:
+  - lifecycle/growth marketer seeking quick placement;
+  - brand designer seeking creative marketing work;
+  - marketing analyst open to growth analytics roles.
+- Actor had one contact slot and four same-field weak-discovery candidates:
+  - `marketing_growth_principal_agent`: principal-side lifecycle/growth marketing role;
+  - `marketing_events_principal_agent`: principal-side events/logistics role;
+  - `marketing_peer_client_agent`: same-side client representative;
+  - `marketing_connector_agent`: broad marketing connector with no specific immediate opening.
+
+Protocol/harness state:
+
+- No new protocol was added.
+- The run used the existing weak-discovery decision contract with `probe_weak_connection`, `request_contact`, and `defer`.
+- The provider schema constrained target IDs to currently discoverable same-field agents.
+- `request_contact` executed through the existing discovery service and appended `contact_requested` events.
+
+Repeated live result:
+
+| Chosen Action | Target | Count |
+| --- | --- | ---: |
+| `request_contact` | `marketing_growth_principal_agent` | 10 |
+
+Protocol shape:
+
+- Valid decisions: 10/10.
+- Contacts created: 10/10 independent runs.
+- Errors: 0.
+- Events: one `contact_requested` event per run.
+
+Interpretation:
+
+- In a simple one-slot portfolio choice, the existing weak-discovery/contact protocol was sufficient for the model to choose the clearly strongest principal-side contact.
+- The model consistently cited the lifecycle/growth marketing role's direct fit with the represented lifecycle marketer and quick-placement goal.
+- The same-side peer contact and broad connector were not selected when a specific principal opportunity was visible.
+- This supports continuing with existing protocols for the next networking slice before adding drop/block/referral protocols.
+
+Limitations:
+
+- The scenario had one obvious best contact, so it tests basic context sufficiency more than nuanced networking tradeoffs.
+- It did not exercise contact maintenance, multiple sequential contact choices, contact capacity after an existing contact, or negotiation request opening after contact formation.
+- The scenario was ad hoc and should be promoted to a deterministic experiment scenario before treating it as a repeatable benchmark.
+
+Follow-ups:
+
+- Add a repeatable multi-contact portfolio scenario under `net_working_platform.experiments`.
+- Run a harder marginal-choice variant where the direct principal, broad connector, and same-side lead contact each have plausible value.
+- Extend the next run from contact choice to existing-protocol `request_negotiation` after contact creation.
+
+### Follow-up: promoted scenario plus marginal variant
+
+Protocol/harness change:
+
+- Added `seed_multi_contact_portfolio_choice_scenario` under `net_working_platform.experiments.scenarios`.
+- Added two scenario kinds:
+  - `obvious`: one clearly strongest direct principal contact;
+  - `marginal`: multiple plausible contacts with different kinds of value.
+- Documented both scenarios in `docs/development/experiment-scenario-catalog.md`.
+
+Run parameters:
+
+- Model: OpenAI `gpt-4o-mini`.
+- Repetitions: 10 independent runs per scenario kind.
+- Available actions: `probe_weak_connection`, `request_contact`, `defer`.
+- Contact slots: 1.
+
+Obvious scenario result:
+
+| Chosen Action | Target | Count |
+| --- | --- | ---: |
+| `request_contact` | `marketing_growth_principal_agent` | 10 |
+
+Marginal scenario result:
+
+| Chosen Action | Target | Count |
+| --- | --- | ---: |
+| `request_contact` | `marketing_analytics_principal_agent` | 9 |
+| `probe_weak_connection` | `marketing_growth_principal_agent` | 1 |
+
+Protocol shape:
+
+- Obvious scenario errors: 0/10.
+- Marginal scenario errors: 0/10.
+- No malformed provider outputs.
+- All executed actions used existing discovery/contact services.
+
+Interpretation:
+
+- The promoted obvious scenario reproduced the ad hoc result: the model spent the single contact slot on the specific growth/lifecycle principal contact in every run.
+- In the marginal scenario, the model strongly preferred the analytics principal contact over the short-term growth contract, same-side peer, or broad connector.
+- The model's reasons repeatedly cited strong fit for the marketing analyst client's campaign reporting, attribution, and growth analytics experience.
+- One run probed the short-term growth contact rather than immediately requesting contact, suggesting the existing `probe_weak_connection` action can absorb uncertainty when a candidate looks plausible but incomplete.
+- Same-side lead generation and broad connector value did not win against a specific principal-side role, even when the connector described broader portfolio value.
+
+Observed pattern:
+
+- With current context, `gpt-4o-mini` appears to prioritize specific visible principal-side opportunities over speculative networking value.
+- This is a reasonable default for contact-slot scarcity, but it means same-side networking and connector utility may need more explicit historical evidence or referral affordances before models treat them as competitive.
+
+Follow-ups:
+
+- Run the next existing-protocol slice: after the selected contact is created, let the actor open a `request_negotiation` using the selected contact.
+- Add a contact-history scenario before adding any reputation protocol: give same-side and connector contacts visible prior downstream utility and observe whether choices shift.
+- If connector/same-side contacts remain ignored even with visible local history, request a measurable platform affordance for local contact-history summaries or relay/referral signals.
+
+Verification:
+
+- `python -m pytest tests/test_weak_discovery_scenario.py tests/test_networking_experiment.py` passed: 5 tests.
+
+## 2026-09-22: Open-Market Networking Observation Smoke Test
+
+Model or decision source: OpenAI `gpt-4o-mini` through a temporary observation script using existing weak discovery, contact, and negotiation-request services.
+
+Scenario/matrix:
+
+- Added seed: `seed_open_market_networking_scenario`.
+- Scenario ID: `open_market_networking_v1`.
+- 12 agents across 4 industries:
+  - marketing;
+  - software;
+  - healthcare operations;
+  - finance/admin.
+- Each agent represents 3 clients or principals with profile details such as credentials, salary expectations, salary ranges, requirements, and summaries.
+- The market starts with weak discovery only: no active contacts and no negotiations.
+- Weak discovery is same-industry scoped.
+
+Protocol/harness state:
+
+- No new platform protocol was added.
+- Available actions were existing networking actions:
+  - `probe_weak_connection`;
+  - `request_contact`;
+  - `request_negotiation`;
+  - `defer`.
+- Once an agent had an active contact, the observation script exposed `request_negotiation` as the endpoint action.
+- After a successful negotiation request, both agents in that pair were marked unavailable for the rest of the observation run. This pair-removal rule was harness-only and did not alter platform protocol behavior.
+
+Run result:
+
+| Metric | Count |
+| --- | ---: |
+| Agents | 12 |
+| Turns used | 21 |
+| Contacts created | 12 |
+| Negotiation requests opened | 6 |
+| Errors | 0 |
+
+Decisions/events:
+
+| Type | Count |
+| --- | ---: |
+| `request_contact` decisions | 12 |
+| `request_negotiation` decisions | 6 |
+| `contact_requested` events | 12 |
+| `open_negotiation_request` events | 6 |
+
+Negotiation-start pairs:
+
+| From Agent | To Agent |
+| --- | --- |
+| `marketing_client_agent_a` | `marketing_principal_agent_a` |
+| `marketing_client_agent_b` | `cross_industry_connector_agent` |
+| `software_client_agent_a` | `software_connector_agent` |
+| `software_client_agent_b` | `software_principal_agent_a` |
+| `health_client_agent_a` | `health_principal_agent_a` |
+| `finance_client_agent_a` | `finance_principal_agent_a` |
+
+Observed result:
+
+- Existing protocols were sufficient to produce complete contact-to-negotiation-start paths for all 12 agents in this seeded market.
+- Decisions stayed within same-industry weak discovery; no global-search behavior was observed in the executed actions.
+- The model chose both direct principal contacts and connector-style contacts:
+  - direct principal contacts in marketing, software, healthcare operations, and finance/admin;
+  - connector contacts for one marketing client agent and one software client agent.
+- Reasons were generally grounded in visible portfolio context: lifecycle/growth marketing, software backend/platform fit, healthcare operations role fit, and finance/admin role fit appeared in model rationales.
+- No `probe_weak_connection` or `defer` actions appeared. The model preferred immediate contact formation and negotiation opening when a plausible local candidate existed.
+
+Interpretation:
+
+- The existing weak-discovery -> contact -> negotiation-request flow can support an open-market observation run without adding new protocols.
+- Pair removal produced six distinct negotiation-start pairs and prevented repeated use of the same agents.
+- Connector contacts can compete with direct principal contacts in a larger market, unlike the smaller one-slot marginal test where direct principal roles dominated. This suggests connector value may emerge from richer portfolio context even before adding a referral protocol.
+- The run remains an observation, not a benchmark: no claim is made that these were the best possible pairings.
+
+Limitations:
+
+- The temporary harness did not require selecting exact represented client/principal topics for the negotiation request subject.
+- Negotiation requests contained a broad reason and field, not a structured topic pair.
+- Pair removal was harness-only and should not be interpreted as platform behavior.
+- Because every actor found an immediate plausible action, this run did not test deferral, contact capacity pressure, or probing under uncertainty.
+
+Follow-ups:
+
+- Combine the open-market scenario with existing topic-selection request shape so negotiation starts include exactly one represented topic on each side when both sides are known.
+- Add a variant with more agents per industry and fewer contact slots to create real contact-capacity pressure.
+- Add a variant with deliberately incomplete candidate portfolios to see whether `probe_weak_connection` appears.
+- Before adding reputation or contact pruning protocols, add a local contact-history scenario and observe whether prior downstream utility changes contact choice.
+
+Verification:
+
+- `seed_open_market_networking_scenario` smoke import/seed check returned `open_market_networking_v1 12 12`.
+- `python -m pytest tests/test_weak_discovery_scenario.py tests/test_networking_experiment.py` passed: 5 tests.

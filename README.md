@@ -202,12 +202,15 @@ Do not start with autonomous multi-step loops. Start with one decision at a time
 ## Documentation
 
 - [MVP Plan](docs/planning/mvp-plan.md)
+- [Area Ownership](docs/ownership/area-ownership.md)
+- [Experiment/Test Boundary Audit](docs/ownership/experiment-test-boundary-audit.md)
 - [Functional Invariants](docs/source-of-truth/functional-invariants.md)
 - [LLM Decision Contract](docs/source-of-truth/llm-decision-contract.md)
 - [Test Charter](docs/source-of-truth/test-charter.md)
 - [LLM Experiment Plan](docs/development/llm-experiment-plan.md)
 - [LLM Experiment Manual](docs/development/llm-experiment-manual.md)
 - [LLM Experiment Log](docs/development/llm-experiment-log.md)
+- [Experiment Scenario Catalog](docs/development/experiment-scenario-catalog.md)
 - [Graph Visualizer Plan](docs/development/graph-visualizer-plan.md)
 - [Game-Theory Experiment Plan](docs/development/game-theory-experiment-plan.md)
 - [Agent Strategy Catalog](docs/development/agent-strategy-catalog.md)

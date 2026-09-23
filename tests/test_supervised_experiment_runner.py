@@ -13,7 +13,7 @@ from scripts.dev.run_supervised_llm_experiment import (
 
 
 def test_context_only_package_outputs_provider_neutral_prompt_without_execution(tmp_path: Path) -> None:
-    """Protects INV-H-004, INV-L-001, and INV-L-002."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     result = build_context_package(db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}")
 
     assert result["mode"] == "context_only"
@@ -47,7 +47,7 @@ def test_context_only_package_outputs_provider_neutral_prompt_without_execution(
 
 
 def test_existing_agent_context_package_describes_open_negotiation_history(tmp_path: Path) -> None:
-    """Protects INV-H-004, INV-L-001, and INV-L-004."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
     scenario = prepare_open_negotiation_scenario(db_url=db_url)
 
@@ -74,7 +74,7 @@ def test_existing_agent_context_package_describes_open_negotiation_history(tmp_p
 
 
 def test_context_only_package_can_describe_at_capacity_agent(tmp_path: Path) -> None:
-    """Protects INV-H-004."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     result = build_context_package(
         db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
         max_active_negotiations=1,
@@ -86,7 +86,7 @@ def test_context_only_package_can_describe_at_capacity_agent(tmp_path: Path) -> 
 
 
 def test_fit_context_package_describes_request_subject_and_fit_criteria(tmp_path: Path) -> None:
-    """Protects INV-H-004."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     result = build_fit_context_package(
         db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
         request_subject={"role": "engineer", "location": "remote"},
@@ -104,7 +104,7 @@ def test_fit_context_package_describes_request_subject_and_fit_criteria(tmp_path
 
 
 def test_fit_context_package_can_describe_bad_fit_request(tmp_path: Path) -> None:
-    """Protects INV-H-004."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     result = build_fit_context_package(
         db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
         request_subject={"role": "sales", "location": "onsite"},
@@ -122,7 +122,7 @@ def test_fit_context_package_can_describe_bad_fit_request(tmp_path: Path) -> Non
 
 
 def test_fit_context_package_can_describe_ambiguous_fit_request(tmp_path: Path) -> None:
-    """Protects INV-H-004."""
+    """Exploratory context-package smoke test; invariants are protected by narrower protocol tests."""
     result = build_fit_context_package(
         db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
         request_subject={"role": "engineer"},
@@ -139,7 +139,7 @@ def test_fit_context_package_can_describe_ambiguous_fit_request(tmp_path: Path) 
 
 
 def test_supervised_experiment_runner_outputs_database_backed_structured_event_log(tmp_path: Path) -> None:
-    """Protects INV-H-001, INV-H-003, INV-L-001, INV-L-002, and INV-L-004."""
+    """Exploratory runner smoke test; invariants are protected by narrower protocol tests."""
     result = run_supervised_experiment(
         db_url=f"sqlite+pysqlite:///{tmp_path / 'network.db'}",
         raw_decision={
@@ -175,7 +175,7 @@ def test_supervised_experiment_runner_outputs_database_backed_structured_event_l
 
 
 def test_execute_decision_against_existing_scenario_reuses_prepared_database(tmp_path: Path) -> None:
-    """Protects INV-H-001, INV-H-003, INV-L-001, INV-L-002, and INV-L-004."""
+    """Exploratory runner smoke test; invariants are protected by narrower protocol tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
     context_package = build_context_package(db_url=db_url)
 
@@ -199,7 +199,7 @@ def test_execute_decision_against_existing_scenario_reuses_prepared_database(tmp
 def test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate(
     tmp_path: Path,
 ) -> None:
-    """Protects INV-L-003 and INV-L-004."""
+    """Exploratory runner smoke test; defer behavior is protected by narrower protocol tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
     context_package = build_context_package(db_url=db_url)
 
@@ -223,7 +223,7 @@ def test_execute_defer_against_existing_scenario_does_not_require_negotiation_id
 
 
 def test_execute_send_message_against_existing_open_scenario_appends_message(tmp_path: Path) -> None:
-    """Protects INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004, and INV-N-004."""
+    """Exploratory runner smoke test; invariants are protected by narrower protocol tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
     scenario = prepare_open_negotiation_scenario(db_url=db_url)
 

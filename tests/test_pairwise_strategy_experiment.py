@@ -10,7 +10,7 @@ from scripts.dev.run_pairwise_strategy_experiment import run_pairwise_strategy_e
 
 
 def test_strategy_catalog_exposes_role_specific_data() -> None:
-    """Protects INV-H-004 and INV-L-004 by keeping strategies as decision context, not protocol rules."""
+    """Exploratory strategy-catalog smoke test; invariants are protected by narrower protocol tests."""
     strategies = list_strategies()
 
     assert {strategy.id for strategy in strategies} == {
@@ -27,7 +27,7 @@ def test_strategy_catalog_exposes_role_specific_data() -> None:
 
 
 def test_platform_constitution_prompt_is_protocol_first() -> None:
-    """Protects INV-L-001 and INV-L-004 by documenting protocol constraints before strategy preferences."""
+    """Exploratory prompt smoke test; invariants are protected by narrower protocol tests."""
     prompt = build_platform_constitution_prompt()
 
     assert "choose exactly one supported protocol action" in prompt
@@ -36,7 +36,7 @@ def test_platform_constitution_prompt_is_protocol_first() -> None:
 
 
 def test_pairwise_strategy_scenario_creates_open_negotiation_with_facts(tmp_path: Path) -> None:
-    """Protects INV-G-001, INV-N-003, INV-H-004, and INV-H-005."""
+    """Exploratory fixture smoke test; invariants are protected by narrower protocol tests."""
     scenario = seed_pairwise_strategy_scenario(
         f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}",
         client_strategy_id="CLIENT-FAST-ANY",
@@ -55,7 +55,7 @@ def test_pairwise_strategy_scenario_creates_open_negotiation_with_facts(tmp_path
 
 
 def test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadata(tmp_path: Path) -> None:
-    """Protects INV-H-001, INV-H-003, INV-H-004, INV-L-001, INV-L-002, and INV-L-004."""
+    """Exploratory runner smoke test; invariants are protected by narrower tooling tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     output_dir = tmp_path / "pairwise_run"
     prompts: list[str] = []
@@ -99,7 +99,7 @@ def test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadat
 
 
 def test_pairwise_strategy_runner_rejects_wrong_focus_decision(tmp_path: Path) -> None:
-    """Protects INV-L-004 by enforcing scheduled actor and negotiation focus before execution."""
+    """Exploratory runner smoke test; focus enforcement is protected by narrower tooling tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     output_dir = tmp_path / "pairwise_run"
 
@@ -132,7 +132,7 @@ def test_pairwise_strategy_runner_rejects_wrong_focus_decision(tmp_path: Path) -
 
 
 def test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions(tmp_path: Path) -> None:
-    """Protects INV-H-004 and INV-L-004 by enforcing context-valid actions."""
+    """Exploratory runner smoke test; action enforcement is protected by narrower tooling tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     output_dir = tmp_path / "pairwise_run"
 

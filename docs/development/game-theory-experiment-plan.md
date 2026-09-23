@@ -149,3 +149,108 @@ python -m scripts.dev.run_pairwise_strategy_experiment `
   --turns 6 `
   --reset-db
 ```
+
+## Next Round: Networking Experiments
+
+The next experiment round should treat networking as its own product-learning layer, separate from both bounded two-party negotiation and the negotiation-opening/proposal bridge.
+
+This section is exploratory. It records experiment hypotheses and desired observations, not protocol specification. Protocol behavior becomes normative only after source-of-truth invariants and deterministic tests are added by the protocol owner.
+
+### Working Phase Model
+
+1. Negotiation phase
+   - Two agents are already in a bounded negotiation.
+   - One agent represents a client; the other represents a principal.
+   - The endpoint is `matched` or `closed`.
+   - Current pairwise experiments suggest this protocol is stable enough to stop being the main experiment focus.
+
+2. Negotiation start/proposal phase
+   - A bridge workflow creates the conditions for a bounded negotiation.
+   - Recent topic-selection and partial-topic experiments indicate that complete-topic and partial-topic opening flows are structurally viable.
+   - Remaining exploratory questions include counter-proposals, responder topic substitution, and whether pre-negotiation proposal/rejection should be persisted as first-class contact events.
+
+3. Networking phase
+   - Agents may represent multiple clients or principals.
+   - The agent's goal is not to resolve one known negotiation, but to maintain useful contacts, discover useful paths, decide when to open a negotiation, and avoid noisy or low-utility relationships.
+   - This is the next primary experiment focus.
+
+### Networking Principles To Explore
+
+- Contacts are valuable because they are a precondition to opening negotiations.
+- Same-side contacts may be valuable for leads, referrals, comparison, swaps, or other emergent workflows, but those uses should remain hypotheses until observed.
+- Agents should have reasons to form, keep, ignore, drop, or possibly block contacts.
+- Agents should navigate through relationships rather than performing global search across all agents or all represented parties.
+- Reputation should emerge from each agent's local history and contact utility, not from a global platform-owned score.
+- Bad or noisy behavior should reduce other agents' willingness to continue contact, but experiments should distinguish model judgment failures from missing protocol/context affordances.
+
+### Experiment Sequence
+
+| Priority | Experiment | Setup | Endpoint | Main Observation |
+| --- | --- | --- | --- | --- |
+| P1 | Contact portfolio choice | One portfolio agent sees several weak-discoverable agents with different represented-side metadata and limited contact slots. | Agent chooses contact(s), probe(s), or defers. | Whether the agent forms contacts likely to help one of its represented parties instead of first-plausible or same-field-only contacts. |
+| P1 | Existing-contact topic opening | One portfolio agent has one or more existing contacts and multiple represented topics. | Agent opens one complete or partial negotiation request. | Whether topic selection remains stable when the agent has multiple represented parties and contact options. |
+| P1 | Responder topic substitution/counter | A contact receives a complete or partial topic proposal. | Responder accepts, rejects, or counters with a different represented topic pair. | Whether counter-proposal semantics are needed before opening the bounded negotiation. |
+| P2 | Contact utility memory | Agent has historical contacts: some led to accepted negotiations/matches, some to closures/rejections/noise. | Agent chooses which contact to use or maintain. | Whether local event history is sufficient for reputation-like behavior without global scores. |
+| P2 | Contact pruning | Agent is at contact capacity and sees a new promising weak-discovery opportunity. | Agent keeps all, drops a low-utility contact, or refuses the new contact. | Whether explicit drop/deactivate affordances are needed for contact maintenance. |
+| P2 | Local referral relay | Agent cannot directly contact a strong target but has an intermediary contact. | Agent sends a relay/probe signal or opens a same-side lead conversation. | Whether relationship-walking can produce useful paths without global search. |
+| P3 | Noisy or misleading contact | A contact repeatedly opens poor-fit or misleading proposals. | Agent reduces interaction, closes/rejects future requests, drops contact, or blocks if available. | What evidence/context is needed for emergent reputation and anti-noise behavior. |
+| P3 | Same-side lead generation | Client-side agents or principal-side agents exchange leads without an immediate cross-side negotiation. | Lead is relayed, ignored, or converted into later contact/negotiation. | Whether same-side networking has product value and what protocol affordance it requires. |
+
+### Near-Term Scenario Additions
+
+The next deterministic scenario seeds should stay under `net_working_platform.experiments` and remain descriptive fixtures, not protocol rules.
+
+1. Multi-contact portfolio scenario
+   - One client portfolio agent represents 2-3 clients.
+   - It has weak discovery to several principal-side agents and at least one same-side client agent.
+   - Some contacts are obviously useful, some marginal, and some same-field but wrong-side.
+   - Contact limit should bind or nearly bind.
+
+2. Contact-history scenario
+   - One agent has 3 existing contacts with summarized local histories:
+     - one produced accepted negotiations or matches;
+     - one produced rejected/closed poor-fit requests;
+     - one produced no downstream value.
+   - The agent also sees one new weak-discovery opportunity.
+   - The experiment observes whether contact utility appears in the decision rationale.
+
+3. Relay-path scenario
+   - A client-side agent cannot directly discover the best principal-side target.
+   - It has a contact that is connected to the target or to a better intermediary.
+   - The experiment observes whether a model can ask for a lead/referral without inventing global search.
+
+4. Noisy-contact scenario
+   - A contact has a visible pattern of low-fit or misleading proposals.
+   - The agent has capacity pressure.
+   - The experiment observes whether agents avoid, deprioritize, drop, or request a block affordance.
+
+### Metrics To Add For Networking Runs
+
+- Contact attempts by target side and represented-party relevance.
+- Contacts created, kept, dropped, or blocked when such affordances exist.
+- Contact slot utilization and attempts rejected by contact capacity.
+- Negotiation requests opened per contact.
+- Accepted, rejected, matched, closed, and still-open negotiations downstream of each contact.
+- Contact utility funnel: contact -> request -> accepted request -> proposal -> match/close.
+- Repeated interaction count per contact.
+- Noise indicators: rejected requests, closed negotiations, invalid/misleading rationale, and ignored contacts.
+- Cases where the model wanted to search globally, rank centrally, or use unavailable contact-management actions.
+
+### Platform Change Requests To Consider
+
+The following should be requested from Repository-Owner or Platform+Protocol-Owner only after experiment observations justify them:
+
+- First-class contact lifecycle actions beyond `request_contact`, such as deactivate/drop contact and possibly block agent.
+- A persisted pre-negotiation contact-event stream for partial proposals, counter-proposals, relay requests, and rejections that do not create negotiations.
+- Contact-history summaries in agent decision context, scoped to the observing agent's local interactions.
+- A relationship-walking/referral affordance that exposes only local contacts and relayed opportunities rather than global agent search.
+- Explicit responder counter-proposal semantics for negotiation-opening workflows.
+
+### What Not To Encode As Tests
+
+- That an agent chooses the objectively best contact.
+- That a particular contact should be dropped or blocked in a scenario.
+- That one referral path is globally optimal.
+- That a platform-level reputation score should rank agents.
+
+Those are experiment observations. If repeated observations reveal a missing affordance, the measurable platform request should be about the affordance itself, such as "agent decision context exposes local contact history summaries," not about a preferred networking outcome.

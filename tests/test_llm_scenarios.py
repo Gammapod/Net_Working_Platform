@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 
 def test_inbound_request_scenario_produces_observable_decision_context(tmp_path: Path) -> None:
-    """Protects INV-G-001, INV-N-002, INV-H-001, and INV-H-004."""
+    """Exploratory fixture smoke test; invariants are protected by narrower protocol tests."""
     scenario = seed_inbound_request_scenario(f"sqlite+pysqlite:///{tmp_path / 'network.db'}")
 
     assert scenario.observing_agent_id == "agent_2"
@@ -39,7 +39,7 @@ def test_inbound_request_scenario_produces_observable_decision_context(tmp_path:
 
 
 def test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations(tmp_path: Path) -> None:
-    """Protects INV-G-001, INV-N-003, INV-N-004, INV-H-001, and INV-H-004."""
+    """Exploratory fixture smoke test; invariants are protected by narrower protocol tests."""
     scenario = seed_referral_relay_scenario(f"sqlite+pysqlite:///{tmp_path / 'network.db'}")
 
     assert scenario.requesting_agent_id == "agent_1"
@@ -50,7 +50,7 @@ def test_referral_relay_scenario_produces_intermediary_with_two_open_negotiation
 
 
 def test_parallel_inbound_scenario_exposes_two_requested_negotiations(tmp_path: Path) -> None:
-    """Protects INV-G-001, INV-N-002, INV-H-001, INV-H-004, and INV-C-001."""
+    """Exploratory fixture smoke test; invariants are protected by narrower protocol tests."""
     scenario = seed_parallel_inbound_scenario(f"sqlite+pysqlite:///{tmp_path / 'network.db'}")
 
     assert scenario.observing_agent_id == "agent_2"
@@ -64,7 +64,7 @@ def test_parallel_inbound_scenario_exposes_two_requested_negotiations(tmp_path: 
 
 
 def test_two_client_two_principal_scenario_creates_requested_starting_graph(tmp_path: Path) -> None:
-    """Protects INV-G-001, INV-E-003, INV-N-003, and INV-H-005."""
+    """Exploratory fixture smoke test; invariants are protected by narrower protocol tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'network.db'}"
     scenario = seed_two_client_two_principal_scenario(db_url)
     engine = create_engine(db_url)

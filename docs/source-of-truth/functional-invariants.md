@@ -76,8 +76,6 @@ Protected by:
 
 - `test_list_discoverable_agents_filters_weak_edges_by_field`
 - `test_probe_weak_connection_requires_matching_weak_edge`
-- `test_weak_discovery_scenario_allows_same_field_probe_and_connection`
-- `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection`
 
 ### INV-D-002: Weak Discovery Gates New Contacts
 
@@ -87,9 +85,6 @@ Protected by:
 
 - `test_probe_weak_connection_requires_matching_weak_edge`
 - `test_request_contact_requires_matching_weak_edge_and_creates_active_connection`
-- `test_weak_discovery_scenario_allows_same_field_probe_and_connection`
-- `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection`
-- `test_networking_valid_actions_allow_contact_when_no_contact_exists`
 
 ### INV-D-003: Active Contacts Are Limited
 
@@ -362,7 +357,9 @@ Protected by:
 - `test_execute_llm_accept_match_decision_uses_service`
 - `test_execute_llm_close_negotiation_decision_uses_service`
 - `test_execute_llm_defer_decision_does_not_mutate_protocol_state`
-- `test_supervised_llm_accept_experiment_validates_executes_and_records_event`
+- `test_llm_turn_guard_rejects_wrong_actor_focus_before_execution`
+- `test_llm_turn_guard_rejects_wrong_negotiation_focus_before_execution`
+- `test_llm_turn_guard_rejects_action_unavailable_in_context`
 
 ## Capacity Invariants
 
@@ -377,7 +374,6 @@ Protected by:
 - `test_request_negotiation_service_rejects_when_actor_at_capacity`
 - `test_sql_negotiation_repository_counts_requested_open_and_proposal_pending_as_active_load`
 - `test_sql_negotiation_repository_counts_inbound_requested_open_and_proposal_pending_as_active_load`
-- `test_networking_valid_actions_prioritize_negotiation_request_after_contact`
 
 ### INV-C-002: Capacity Rejections Are Recorded
 
@@ -435,8 +431,6 @@ Protected by:
 | `test_probe_weak_connection_requires_matching_weak_edge` | INV-D-001, INV-D-002 |
 | `test_request_contact_requires_matching_weak_edge_and_creates_active_connection` | INV-D-002, INV-G-001 |
 | `test_request_contact_rejects_actor_over_contact_limit` | INV-D-003 |
-| `test_weak_discovery_scenario_allows_same_field_probe_and_connection` | INV-D-001, INV-D-002, INV-G-001 |
-| `test_weak_discovery_scenario_blocks_cross_field_probe_and_connection` | INV-D-001, INV-D-002 |
 | `test_parse_discovery_request_contact_decision` | INV-L-001, INV-L-002, INV-D-002 |
 | `test_parse_discovery_decision_rejects_unknown_action` | INV-L-001 |
 | `test_discovery_turn_schema_constrains_targets_and_fields` | INV-L-005, INV-L-006, INV-D-001 |
@@ -487,16 +481,6 @@ Protected by:
 | `test_render_graph_snapshot_mermaid_uses_short_labels_and_edge_styles` | INV-H-005 |
 | `test_cli_returns_graph_mermaid` | INV-H-005, INV-CLI-001, INV-CLI-002 |
 | `test_graph_evolution_demo_writes_before_after_graphs` | INV-H-005 |
-| `test_scaled_experiment_runner_writes_graphs_transcript_and_summary` | INV-H-005 |
-| `test_scaled_experiment_runner_can_limit_turns` | INV-H-005 |
-| `test_scaled_experiment_runner_observes_20_client_10_principal_market_for_10_rounds` | INV-H-005 |
-| `test_scaled_experiment_runner_can_use_injected_llm_policy` | INV-H-005, INV-L-004 |
-| `test_scaled_experiment_runner_rejects_llm_decision_for_wrong_negotiation` | INV-H-005, INV-L-004 |
-| `test_scaled_experiment_runner_can_reset_existing_sqlite_database` | INV-H-005 |
-| `test_inbound_request_scenario_produces_observable_decision_context` | INV-G-001, INV-N-002, INV-H-001, INV-H-004 |
-| `test_referral_relay_scenario_produces_intermediary_with_two_open_negotiations` | INV-G-001, INV-N-003, INV-N-004, INV-H-001, INV-H-004 |
-| `test_parallel_inbound_scenario_exposes_two_requested_negotiations` | INV-G-001, INV-N-002, INV-H-001, INV-H-004, INV-C-001 |
-| `test_two_client_two_principal_scenario_creates_requested_starting_graph` | INV-G-001, INV-E-003, INV-N-003, INV-H-005 |
 | `test_parse_llm_accept_negotiation_decision` | INV-L-001, INV-L-002 |
 | `test_parse_llm_decision_rejects_unknown_action` | INV-L-001 |
 | `test_parse_llm_decision_requires_action_specific_fields` | INV-L-002 |
@@ -512,17 +496,6 @@ Protected by:
 | `test_execute_llm_close_negotiation_decision_uses_service` | INV-L-004, INV-N-006, INV-H-001 |
 | `test_execute_llm_decision_discloses_attached_facts_before_protocol_action` | INV-L-004, INV-F-001 |
 | `test_execute_llm_defer_decision_does_not_mutate_protocol_state` | INV-L-003, INV-L-004 |
-| `test_supervised_llm_accept_experiment_validates_executes_and_records_event` | INV-L-001, INV-L-002, INV-L-004, INV-N-003, INV-H-001 |
-| `test_supervised_experiment_runner_outputs_database_backed_structured_event_log` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
-| `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-H-004, INV-L-001, INV-L-002 |
-| `test_existing_agent_context_package_describes_open_negotiation_history` | INV-H-004, INV-L-001, INV-L-004 |
-| `test_context_only_package_can_describe_at_capacity_agent` | INV-H-004 |
-| `test_fit_context_package_describes_request_subject_and_fit_criteria` | INV-H-004 |
-| `test_fit_context_package_can_describe_bad_fit_request` | INV-H-004 |
-| `test_fit_context_package_can_describe_ambiguous_fit_request` | INV-H-004 |
-| `test_execute_decision_against_existing_scenario_reuses_prepared_database` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004 |
-| `test_execute_defer_against_existing_scenario_does_not_require_negotiation_id_or_mutate` | INV-L-003, INV-L-004 |
-| `test_execute_send_message_against_existing_open_scenario_appends_message` | INV-H-001, INV-H-003, INV-L-001, INV-L-002, INV-L-004, INV-N-004 |
 | `test_llm_decision_json_schema_describes_supported_actions` | INV-L-005 |
 | `test_turn_decision_json_schema_constrains_actions_actor_and_negotiation` | INV-L-005, INV-L-006 |
 | `test_context_only_package_outputs_provider_neutral_prompt_without_execution` | INV-L-005 |
@@ -534,22 +507,6 @@ Protected by:
 | `test_openai_adapter_normalizes_schema_constrained_propose_match_decision` | INV-L-006 |
 | `test_openai_adapter_normalizes_schema_constrained_accept_match_decision` | INV-L-006 |
 | `test_openai_adapter_requires_api_key` | INV-L-006 |
-| `test_strategy_catalog_exposes_role_specific_data` | INV-H-004, INV-L-004 |
-| `test_platform_constitution_prompt_is_protocol_first` | INV-L-001, INV-L-004 |
-| `test_pairwise_strategy_scenario_creates_open_negotiation_with_facts` | INV-G-001, INV-N-003, INV-H-004, INV-H-005 |
-| `test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadata` | INV-H-001, INV-H-003, INV-H-004, INV-L-001, INV-L-002, INV-L-004 |
-| `test_pairwise_strategy_runner_rejects_wrong_focus_decision` | INV-L-004 |
-| `test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions` | INV-H-004, INV-L-004 |
-| `test_pairwise_strategy_runner_can_reset_existing_sqlite_database` | INV-H-004 |
-| `test_networking_valid_actions_prioritize_negotiation_request_after_contact` | INV-C-001, INV-N-001, INV-N-002 |
-| `test_networking_valid_actions_allow_contact_when_no_contact_exists` | INV-D-001, INV-D-002 |
-| `test_networking_runner_ends_agent_workflow_at_negotiation_request` | INV-D-002, INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
-| `test_topic_selection_schema_requires_one_client_and_one_principal_topic` | INV-N-001, INV-N-002, INV-L-005 |
-| `test_topic_selection_runner_opens_negotiation_with_exact_topic_pair` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
-| `test_topic_selection_runner_rejects_unrepresented_topic` | INV-N-001, INV-L-004 |
-| `test_ambiguous_topic_selection_scenario_exposes_two_plausible_pairs` | INV-E-003, INV-G-001 |
-| `test_topic_selection_runner_can_use_ambiguous_scenario_kind` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
-| `test_partial_topic_proposal_accepts_by_filling_principal_topic` | INV-G-001, INV-N-001, INV-N-002, INV-H-001 |
-| `test_partial_topic_proposal_can_be_rejected_without_opening_negotiation` | INV-N-001, INV-L-004 |
-| `test_partial_topic_reject_cannot_select_principal_topic` | INV-L-004 |
-| `test_partial_topic_bad_fit_scenario_can_reject_without_negotiation` | INV-N-001, INV-L-004 |
+| `test_llm_turn_guard_rejects_wrong_actor_focus_before_execution` | INV-L-004 |
+| `test_llm_turn_guard_rejects_wrong_negotiation_focus_before_execution` | INV-L-004 |
+| `test_llm_turn_guard_rejects_action_unavailable_in_context` | INV-L-004 |
