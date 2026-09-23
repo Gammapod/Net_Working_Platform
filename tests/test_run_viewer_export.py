@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -21,13 +22,20 @@ def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path)
     viewer_path = export_run_viewer(run_dir=run_dir)
 
     html = viewer_path.read_text(encoding="utf-8")
+    viewer_model = json.loads((run_dir / "viewer_model.json").read_text(encoding="utf-8"))
     assert viewer_path == run_dir / "viewer.html"
+    assert viewer_model["kind"] == "net_working_platform.viewer_model"
+    assert viewer_model["source_artifacts"]["graph_events"] == "graph_events.jsonl"
+    assert viewer_model["turns"][0]["topic_party_ids"] == ["client_alpha", "principal_beta"]
+    assert viewer_model["object_timelines"]["nodes"]["client_alpha"] == [0]
+    assert viewer_model["object_timelines"]["nodes"]["principal_beta"] == [0]
     assert "Net Working Platform Run Viewer" in html
     assert "https://unpkg.com/cytoscape" in html
     assert '<script id="run-summary" type="application/json">' in html
     assert '<script id="initial-graph" type="application/json">' in html
     assert '<script id="final-graph" type="application/json">' in html
     assert '<script id="graph-events" type="application/json">' in html
+    assert '<script id="viewer-model" type="application/json">' in html
     assert "editable-marketing-demo" in html
     assert "negotiation_editable_alpha_beta" in html
     assert "Client Alpha has lifecycle marketing experience" in html

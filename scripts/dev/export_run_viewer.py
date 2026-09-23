@@ -5,7 +5,7 @@ import json
 from html import escape
 from pathlib import Path
 
-from scripts.dev.experiment_artifacts import read_jsonl
+from net_working_platform.experiments.artifacts import build_viewer_model, read_jsonl
 
 
 def export_run_viewer(*, run_dir: Path, output_file: Path | None = None) -> Path:
@@ -21,6 +21,16 @@ def export_run_viewer(*, run_dir: Path, output_file: Path | None = None) -> Path
     final_graph = _read_json(run_dir / "final_graph.json")
     transcript = read_jsonl(run_dir / "transcript.jsonl")
     graph_events = read_jsonl(run_dir / "graph_events.jsonl")
+    viewer_model = build_viewer_model(
+        summary=summary,
+        run_metadata=run_metadata,
+        seed=seed,
+        initial_graph=initial_graph,
+        final_graph=final_graph,
+        transcript=transcript,
+        graph_events=graph_events,
+    )
+    (run_dir / "viewer_model.json").write_text(json.dumps(viewer_model, indent=2, sort_keys=True), encoding="utf-8")
 
     output_path.write_text(
         _viewer_html(
@@ -32,6 +42,7 @@ def export_run_viewer(*, run_dir: Path, output_file: Path | None = None) -> Path
             final_graph=final_graph,
             transcript=transcript,
             graph_events=graph_events,
+            viewer_model=viewer_model,
         ),
         encoding="utf-8",
     )
@@ -69,6 +80,7 @@ def _viewer_html(
     final_graph: dict[str, object],
     transcript: list[dict[str, object]],
     graph_events: list[dict[str, object]],
+    viewer_model: dict[str, object],
 ) -> str:
     escaped_title = escape(title)
     return f"""<!doctype html>
@@ -173,6 +185,7 @@ def _viewer_html(
   <script id="final-graph" type="application/json">{_json_script(final_graph)}</script>
   <script id="transcript" type="application/json">{_json_script(transcript)}</script>
   <script id="graph-events" type="application/json">{_json_script(graph_events)}</script>
+  <script id="viewer-model" type="application/json">{_json_script(viewer_model)}</script>
   <script>
     const data = id => JSON.parse(document.getElementById(id).textContent);
     const summary = data('run-summary');
@@ -181,6 +194,7 @@ def _viewer_html(
     const finalGraph = data('final-graph');
     const transcript = data('transcript');
     const graphEvents = data('graph-events');
+    const viewerModel = data('viewer-model');
     let selectedEvent = graphEvents[0] || null;
     let selectedTurnIndex = graphEvents.length ? 0 : -1;
     let currentGraph = 'initial';

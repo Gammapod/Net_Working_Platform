@@ -31,7 +31,7 @@ from net_working_platform.storage.repositories import (
 )
 from net_working_platform.storage.schema import metadata
 from net_working_platform.storage.services import create_sql_negotiation_service
-from scripts.dev.experiment_artifacts import graph_delta, read_jsonl, timeline_record_from_transcript_record, write_jsonl
+from net_working_platform.experiments.artifacts import graph_delta, read_jsonl, timeline_record_from_transcript_record, write_jsonl
 from scripts.dev.run_scaled_experiment import run_scaled_experiment
 
 

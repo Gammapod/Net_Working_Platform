@@ -35,7 +35,7 @@ from net_working_platform.storage.repositories import (
 )
 from net_working_platform.storage.schema import agent_connections, metadata, negotiations, protocol_events
 from net_working_platform.storage.services import create_sql_discovery_service, create_sql_negotiation_service
-from scripts.dev.experiment_artifacts import graph_delta, graph_snapshot_for_db, timeline_record_from_transcript_record, write_jsonl
+from net_working_platform.experiments.artifacts import graph_delta, graph_snapshot_for_db, timeline_record_from_transcript_record, write_jsonl
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 MAX_CONTACTS_PER_AGENT = 3
