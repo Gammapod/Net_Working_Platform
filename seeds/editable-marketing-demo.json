@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "editable-marketing-demo",
+  "name": "Editable Marketing Demo",
+  "description": "A small editable graph seed with one client agent, one principal agent, one open negotiation, and one scripted message turn.",
+  "experiment": {
+    "kind": "editable_graph_scripted",
+    "editable_graph_scripted": {
+      "max_open_negotiations": 5,
+      "nodes": [
+        {
+          "id": "client_agent_alpha",
+          "type": "agent",
+          "display_name": "Client Agent Alpha"
+        },
+        {
+          "id": "principal_agent_beta",
+          "type": "agent",
+          "display_name": "Principal Agent Beta"
+        },
+        {
+          "id": "client_alpha",
+          "type": "client",
+          "display_name": "Client Alpha"
+        },
+        {
+          "id": "principal_beta",
+          "type": "principal",
+          "display_name": "Principal Beta"
+        }
+      ],
+      "representation_edges": [
+        {
+          "agent_id": "client_agent_alpha",
+          "represented_node_id": "client_alpha",
+          "represented_node_type": "client"
+        },
+        {
+          "agent_id": "principal_agent_beta",
+          "represented_node_id": "principal_beta",
+          "represented_node_type": "principal"
+        }
+      ],
+      "agent_connections": [
+        {
+          "from_agent_id": "client_agent_alpha",
+          "to_agent_id": "principal_agent_beta"
+        }
+      ],
+      "initial_negotiations": [
+        {
+          "id": "negotiation_editable_alpha_beta",
+          "from_agent_id": "client_agent_alpha",
+          "to_agent_id": "principal_agent_beta",
+          "state": "open",
+          "subject": {
+            "role": "growth marketer",
+            "client_id": "client_alpha",
+            "principal_id": "principal_beta"
+          }
+        }
+      ],
+      "scripted_turns": [
+        {
+          "actor_agent_id": "client_agent_alpha",
+          "negotiation_id": "negotiation_editable_alpha_beta",
+          "decision": {
+            "action": "send_message",
+            "actor_agent_id": "client_agent_alpha",
+            "negotiation_id": "negotiation_editable_alpha_beta",
+            "body": "Client Alpha has lifecycle marketing experience and can start this month."
+          }
+        }
+      ]
+    }
+  }
+}

@@ -403,6 +403,33 @@ Protected by:
 - `test_cli_runs_full_negotiation_lifecycle`
 - `test_cli_returns_agent_decision_context`
 
+## Experiment Tooling Invariants
+
+### INV-X-001: Experiment Runs Emit Standard Inspectable Artifacts
+
+Experiment runner entrypoints intended for repository users must emit a stable run folder containing versioned run metadata, the seed used for the run, structured summary data, a JSONL transcript, and structured initial/final graph snapshots. Convenience renderings such as Mermaid graphs may be emitted in addition to the structured artifacts, but they must not be the only inspectable graph output.
+
+Protected by:
+
+- `test_unified_experiment_runner_writes_standard_inspection_artifacts`
+- `test_unified_experiment_runner_rejects_unsupported_seed_version`
+
+### INV-X-002: Editable Graph Seeds Drive Demo Runs
+
+Versioned experiment seeds may define a small starting graph in editable JSON, including nodes, representation edges, agent-agent connections, initial negotiations, and scripted turns. The user-facing experiment runner must validate required seed sections, import the declared graph through normal storage/application services, execute scripted turns through protocol services, and preserve the exact seed used for the run in the output folder.
+
+Protected by:
+
+- `test_unified_experiment_runner_imports_editable_graph_seed`
+
+### INV-X-003: Experiment Timelines Link Turns To Graph Changes
+
+Inspectable experiment runs must emit a structured JSONL timeline artifact that can be consumed by future viewer tooling. Each timeline record must identify the turn, actor, negotiation focus when applicable, raw decision, validation result, protocol event deltas, and graph-visible node/edge changes observed for that turn when snapshots are available. The timeline artifact is an observation/export format; it must not create hidden protocol behavior or replace append-only protocol events.
+
+Protected by:
+
+- `test_unified_experiment_runner_writes_graph_event_timeline`
+
 ## Test Traceability
 
 | Test | Invariants |
@@ -510,3 +537,7 @@ Protected by:
 | `test_llm_turn_guard_rejects_wrong_actor_focus_before_execution` | INV-L-004 |
 | `test_llm_turn_guard_rejects_wrong_negotiation_focus_before_execution` | INV-L-004 |
 | `test_llm_turn_guard_rejects_action_unavailable_in_context` | INV-L-004 |
+| `test_unified_experiment_runner_writes_standard_inspection_artifacts` | INV-X-001 |
+| `test_unified_experiment_runner_rejects_unsupported_seed_version` | INV-X-001 |
+| `test_unified_experiment_runner_imports_editable_graph_seed` | INV-X-002 |
+| `test_unified_experiment_runner_writes_graph_event_timeline` | INV-X-003 |

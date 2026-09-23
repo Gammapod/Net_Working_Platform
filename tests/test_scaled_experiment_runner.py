@@ -15,6 +15,7 @@ def test_scaled_experiment_runner_writes_graphs_transcript_and_summary(tmp_path:
     initial_graph = (output_dir / "initial_graph.mmd").read_text(encoding="utf-8")
     final_graph = (output_dir / "final_graph.mmd").read_text(encoding="utf-8")
     transcript = [json.loads(line) for line in (output_dir / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
+    graph_events = [json.loads(line) for line in (output_dir / "graph_events.jsonl").read_text(encoding="utf-8").splitlines()]
     written_summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
 
     assert summary == written_summary
@@ -32,6 +33,13 @@ def test_scaled_experiment_runner_writes_graphs_transcript_and_summary(tmp_path:
     assert 'client_agent_1 ==>|"closed"| principal_agent_2' in final_graph
     assert 'client_agent_2 ==>|"open"| principal_agent_1' in final_graph
     assert [record["turn"] for record in transcript] == [1, 2, 3, 4, 5]
+    assert [record["turn"] for record in graph_events] == [1, 2, 3, 4, 5]
+    assert graph_events[0]["protocol_event_delta"][0]["type"] == "message"
+    assert graph_events[0]["graph_delta"]["edges_changed"][0]["id"] == "negotiation:negotiation_client1_principal1"
+    assert graph_events[0]["graph_delta"]["edges_changed"][0]["before"]["details"]["recent_event_count"] == 2
+    assert graph_events[0]["graph_delta"]["edges_changed"][0]["after"]["details"]["recent_event_count"] == 3
+    assert graph_events[2]["graph_delta"]["edges_changed"][0]["after"]["state"] == "matched"
+    assert summary["outputs"]["graph_events"] == str(output_dir / "graph_events.jsonl")
     assert [record["raw_decision"]["action"] for record in transcript] == [
         "send_message",
         "propose_match",

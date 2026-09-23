@@ -354,5 +354,17 @@ Exploratory questions:
 | `scripts.dev.run_topic_selection_networking_experiment` | portfolio topics | Choose exactly one client topic and one principal topic when opening a negotiation. |
 | `scripts.dev.run_partial_topic_proposal_experiment` | portfolio topics | Propose one client topic, then responder fills a principal topic or rejects. |
 | `scripts.dev.run_bandwidth_sweep_experiment` | unified lifecycle | Compare repeated runs across contact and negotiation limits. |
+| `scripts.dev.run_experiment` | versioned seed files | User-facing entrypoint that copies the seed and emits standard inspectable run artifacts. |
 
 Runner mechanics may have deterministic tests for guardrails, validation, and artifact writing. Runner outcomes, strategy success, and market metrics remain exploratory unless converted into source-of-truth invariants.
+
+## Editable Seed Files
+
+The `seeds/` directory contains user-facing JSON seeds for the unified runner:
+
+- `two-client-two-principal-scripted.json`: wraps the existing two-client/two-principal scripted scaled demo.
+- `editable-marketing-demo.json`: defines a small graph directly in JSON, including nodes, representation edges, an active agent connection, one open negotiation, and one scripted message turn.
+
+Editable graph seeds currently support the `editable_graph_scripted` experiment kind. This is a lightweight bridge toward user-editable test data; richer profiles, reusable catalogs, and non-scripted policies should build on the same versioned seed-file approach rather than adding hidden Python-only fixtures.
+
+Unified runner outputs include `graph_events.jsonl`, a timeline-oriented JSONL artifact with one record per turn. Each record carries the raw decision, validation result, protocol event deltas, and graph-visible deltas when the runner captures per-turn snapshots. This is the first replay/viewer contract; it is descriptive observation data and must not be treated as a source of protocol truth independent of `protocol_events` and the functional invariants.

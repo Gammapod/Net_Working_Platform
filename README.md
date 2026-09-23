@@ -160,6 +160,34 @@ Current automated verification:
 - Shared-database supervised experiment runner test.
 - Pairwise strategy experiment runner test with injected-provider focus enforcement.
 
+## Run Your First Experiment
+
+The quickest no-API-key demo uses a versioned seed file and scripted decisions:
+
+```powershell
+python -m scripts.dev.run_experiment --seed seeds/two-client-two-principal-scripted.json --output-dir runs/demo --reset-db
+```
+
+The run folder contains structured artifacts intended for human inspection and future viewer tooling:
+
+- `run.json`: run metadata and output paths.
+- `seed.json`: the exact seed copied into the run folder.
+- `summary.json`: scenario metrics and artifact references.
+- `transcript.jsonl`: one JSON record per experiment turn.
+- `graph_events.jsonl`: one timeline record per turn linking decisions, protocol-event deltas, and graph-visible changes when available.
+- `initial_graph.json` / `final_graph.json`: structured graph snapshots.
+- `initial_graph.mmd` / `final_graph.mmd`: Mermaid convenience renderings.
+
+This unified seed-runner path wraps the scaled scripted demo and emits a stable artifact layout for inspection tools.
+
+An editable seed can define the starting graph and scripted turns directly in JSON:
+
+```powershell
+python -m scripts.dev.run_experiment --seed seeds/editable-marketing-demo.json --output-dir runs/editable-demo --reset-db
+```
+
+For now, editable graph seeds support nodes, representation edges, active agent connections, requested/open initial negotiations, and protocol-valid scripted turns. This is intentionally small so users can copy a seed, change IDs/facts/messages, and inspect the resulting artifacts before a full test-data editor exists. Editable graph runs include graph deltas in `graph_events.jsonl`; the scaled wrapper includes protocol-event deltas and reserves empty graph-delta sections until full replay support is added.
+
 ## Not Yet Added
 
 Still missing or intentionally deferred for MVP completion:

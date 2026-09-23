@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scripts.dev.run_unified_agent_lifecycle_experiment import (
@@ -104,3 +105,10 @@ def test_unified_runner_uses_injected_policy_to_create_contact_and_request_negot
     assert summary["metrics"]["contacts_created"] == 1
     assert summary["metrics"]["negotiations_created"] == 1
     assert summary["metrics"]["decisions_by_action"] == {"defer": 9, "request_contact": 1, "request_negotiation": 1}
+    assert summary["outputs"]["graph_events"] == str(tmp_path / "run" / "graph_events.jsonl")
+    graph_events = [json.loads(line) for line in (tmp_path / "run" / "graph_events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert len(graph_events) == 11
+    assert graph_events[0]["raw_decision"]["action"] == "request_contact"
+    assert graph_events[0]["graph_delta"]["edges_added"][0]["id"].startswith("agent_connection:")
+    assert graph_events[10]["raw_decision"]["action"] == "request_negotiation"
+    assert any(edge["kind"] == "negotiation" for edge in graph_events[10]["graph_delta"]["edges_added"])

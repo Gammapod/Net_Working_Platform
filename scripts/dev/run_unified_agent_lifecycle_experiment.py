@@ -35,6 +35,7 @@ from net_working_platform.storage.repositories import (
 )
 from net_working_platform.storage.schema import agent_connections, metadata, negotiations, protocol_events
 from net_working_platform.storage.services import create_sql_discovery_service, create_sql_negotiation_service
+from scripts.dev.experiment_artifacts import graph_delta, graph_snapshot_for_db, timeline_record_from_transcript_record, write_jsonl
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 MAX_CONTACTS_PER_AGENT = 3
@@ -70,20 +71,23 @@ def run_unified_agent_lifecycle_experiment(
     schedule = list(scenario.agent_fields)
     for turn in range(1, turns + 1):
         actor_agent_id = schedule[(turn - 1) % len(schedule)]
-        transcript.append(
-            _execute_turn(
-                db_url=db_url,
-                scenario=scenario,
-                actor_agent_id=actor_agent_id,
-                turn=turn,
-                baseline_model=baseline_model,
-                decision_provider=decision_provider,
-                contact_limit=contact_limit,
-                negotiation_limit=negotiation_limit,
-            )
+        before_snapshot = _graph_snapshot(db_url, turn=turn, after=False)
+        record = _execute_turn(
+            db_url=db_url,
+            scenario=scenario,
+            actor_agent_id=actor_agent_id,
+            turn=turn,
+            baseline_model=baseline_model,
+            decision_provider=decision_provider,
+            contact_limit=contact_limit,
+            negotiation_limit=negotiation_limit,
         )
+        after_snapshot = _graph_snapshot(db_url, turn=turn, after=True)
+        record["graph_delta"] = graph_delta(before_snapshot, after_snapshot)
+        transcript.append(record)
     summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit)
     (output_dir / "transcript.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in transcript), encoding="utf-8")
+    write_jsonl(output_dir / "graph_events.jsonl", [_timeline_record_from_transcript_record(r) for r in transcript])
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
 
@@ -387,8 +391,17 @@ def _summary(
             "decisions_by_action": _counts((record.get("raw_decision") or {}).get("action") for record in transcript if isinstance(record.get("raw_decision"), dict)),
             "errors": sum(1 for record in transcript if record.get("error") is not None),
         },
-        "outputs": {"summary": str(output_dir / "summary.json"), "transcript": str(output_dir / "transcript.jsonl")},
+        "outputs": {"summary": str(output_dir / "summary.json"), "transcript": str(output_dir / "transcript.jsonl"), "graph_events": str(output_dir / "graph_events.jsonl")},
     }
+
+
+def _graph_snapshot(db_url: str, *, turn: int, after: bool) -> dict[str, object]:
+    timestamp = _now(turn) + timedelta(seconds=1 if after else 0)
+    return graph_snapshot_for_db(db_url, generated_at=timestamp)
+
+
+def _timeline_record_from_transcript_record(record: dict[str, object]) -> dict[str, object]:
+    return timeline_record_from_transcript_record(record, validation={"valid": record.get("error") is None})
 
 
 def _request_openai_json(*, prompt: str, model: str, json_schema: dict[str, object]) -> dict[str, Any]:

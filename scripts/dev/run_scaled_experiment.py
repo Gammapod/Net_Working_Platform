@@ -17,6 +17,7 @@ from net_working_platform.experiments.scenarios import seed_market_scenario, see
 from net_working_platform.storage.graph_snapshots import SqlGraphSnapshotReader
 from net_working_platform.storage.repositories import SqlProtocolEventRepository
 from net_working_platform.storage.schema import metadata
+from scripts.dev.experiment_artifacts import graph_delta, graph_snapshot_for_db, timeline_record_from_transcript_record, write_jsonl
 from scripts.dev.openai_provider import request_openai_decision
 from scripts.dev.run_supervised_llm_experiment import (
     build_existing_agent_context_package,
@@ -111,6 +112,7 @@ def run_scaled_experiment(
                 openai_model=openai_model,
             )
         )
+    graph_events = [timeline_record_from_transcript_record(record) for record in transcript]
 
     with engine.begin() as connection:
         final_snapshot = build_graph_snapshot(
@@ -132,10 +134,19 @@ def run_scaled_experiment(
 
     (output_dir / "initial_graph.mmd").write_text(render_graph_snapshot_mermaid(initial_snapshot), encoding="utf-8")
     (output_dir / "final_graph.mmd").write_text(render_graph_snapshot_mermaid(final_snapshot), encoding="utf-8")
+    (output_dir / "initial_graph.json").write_text(
+        json.dumps(initial_snapshot, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (output_dir / "final_graph.json").write_text(
+        json.dumps(final_snapshot, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     (output_dir / "transcript.jsonl").write_text(
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in transcript),
         encoding="utf-8",
     )
+    write_jsonl(output_dir / "graph_events.jsonl", graph_events)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
 
@@ -169,6 +180,7 @@ def _execute_turn(
     execution_result = None
     error = None
     event_delta: list[dict[str, object]] = []
+    before_snapshot = _graph_snapshot(db_url, index=index, after=False)
     if validation["valid"]:
         try:
             if validation.get("action") == LlmDecisionAction.DEFER.value:
@@ -184,6 +196,7 @@ def _execute_turn(
                 event_delta = result["structured_event_log"][before_events:]
         except Exception as exc:  # pragma: no cover - defensive transcript path
             error = {"type": type(exc).__name__, "message": str(exc)}
+    after_snapshot = _graph_snapshot(db_url, index=index, after=True)
 
     return {
         "turn": index,
@@ -198,6 +211,7 @@ def _execute_turn(
         "execution": execution_result,
         "error": error,
         "event_delta": event_delta,
+        "graph_delta": graph_delta(before_snapshot, after_snapshot),
     }
 
 
@@ -514,10 +528,18 @@ def _summary(
         "outputs": {
             "initial_graph": str(output_dir / "initial_graph.mmd"),
             "final_graph": str(output_dir / "final_graph.mmd"),
+            "initial_graph_json": str(output_dir / "initial_graph.json"),
+            "final_graph_json": str(output_dir / "final_graph.json"),
+            "graph_events": str(output_dir / "graph_events.jsonl"),
             "transcript": str(output_dir / "transcript.jsonl"),
             "summary": str(output_dir / "summary.json"),
         },
     }
+
+
+def _graph_snapshot(db_url: str, *, index: int, after: bool) -> dict[str, object]:
+    timestamp = datetime(2026, 1, 8, 12, 5, tzinfo=timezone.utc) + timedelta(minutes=index - 1, seconds=1 if after else 0)
+    return graph_snapshot_for_db(db_url, generated_at=timestamp)
 
 
 def _counts(values: object) -> dict[str, int]:

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "two-client-two-principal-scripted",
+  "name": "Two Client / Two Principal Scripted Demo",
+  "description": "A small no-API-key demo run that starts with two client agents, two principal agents, three open negotiations, and scripted protocol-valid turns.",
+  "experiment": {
+    "kind": "scaled",
+    "scaled": {
+      "scenario": "two-client-two-principal",
+      "decision_source": "scripted"
+    }
+  }
+}
