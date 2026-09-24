@@ -163,6 +163,12 @@ Exploratory questions:
 - Do run artifacts make the graph's before/after evolution easy to inspect without treating any match as correct?
 - Are portfolio facts and strategy priorities sufficient context for LLM-backed discovery and negotiation-opening behavior?
 
+Agent-facing instruction note:
+
+- Viewer-showcase agents should not be told that they are part of a viewer showcase, experiment, demo, benchmark, or endpoint-oriented workflow.
+- Their prompt should be assembled from reusable platform mechanics, structured representation context, and optional strategy/flavor instructions.
+- They should be asked to return one valid protocol decision from the visible context, but they should not be directed to form same-field contacts, open a negotiation by a certain turn, optimize graph shape, or satisfy a showcase outcome.
+
 ### Pairwise Strategy Scenario
 
 Seeder: `seed_pairwise_strategy_scenario`
@@ -375,7 +381,7 @@ Exploratory questions:
 | `scripts.dev.run_scaled_experiment` | two-client/two-principal and parameterized market | Scaled turn scheduling, transcripts, graph snapshots, and summary metrics. |
 | `scripts.dev.run_pairwise_strategy_experiment` | pairwise strategy | Strategy matrix experiments over a single negotiation. |
 | `scripts.dev.run_weak_discovery_experiment` | weak discovery | Same-field discovery/contact behavior. |
-| `scripts.dev.run_networking_experiment` | weak discovery/networking | Contact formation ending at negotiation request. |
+| `scripts.dev.run_networking_experiment` | weak discovery/networking, viewer-showcase-llm | Contact formation and negotiation requests under externally enforced runner limits. |
 | `scripts.dev.run_unified_agent_lifecycle_experiment` | weak discovery plus negotiation lifecycle | Combined discovery, contact, request, and negotiation-action choices. |
 | `scripts.dev.run_topic_selection_networking_experiment` | portfolio topics | Choose exactly one client topic and one principal topic when opening a negotiation. |
 | `scripts.dev.run_partial_topic_proposal_experiment` | portfolio topics | Propose one client topic, then responder fills a principal topic or rejects. |
@@ -383,6 +389,8 @@ Exploratory questions:
 | `scripts.dev.run_experiment` | versioned seed files | User-facing entrypoint that copies the seed and emits standard inspectable run artifacts. |
 
 Runner mechanics may have deterministic tests for guardrails, validation, and artifact writing. Runner outcomes, strategy success, and market metrics remain exploratory unless converted into source-of-truth invariants.
+
+Runner prompts should reuse centralized experiment prompt builders under `src/net_working_platform/experiments/` when possible. Avoid embedding agent-facing prose in a runner unless it is purely mechanical and reusable; run-specific goals and exploratory intent belong in this catalog, run summaries, and logs rather than in the instructions shown to model-backed agents.
 
 ## Editable Seed Files
 

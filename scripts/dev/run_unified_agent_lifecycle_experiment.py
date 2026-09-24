@@ -36,6 +36,7 @@ from net_working_platform.storage.repositories import (
 from net_working_platform.storage.schema import agent_connections, metadata, negotiations, protocol_events
 from net_working_platform.storage.services import create_sql_discovery_service, create_sql_negotiation_service
 from net_working_platform.experiments.artifacts import graph_delta, graph_snapshot_for_db, timeline_record_from_transcript_record, write_jsonl
+from net_working_platform.experiments.prompts import build_representative_decision_prompt_package
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 MAX_CONTACTS_PER_AGENT = 3
@@ -290,15 +291,11 @@ def _select_focus_negotiation(decision_context: dict[str, object]) -> str | None
 
 
 def _prompt(context: dict[str, object]) -> str:
-    return "\n".join(
-        [
-            "You are an autonomous representative agent on Net Working Platform.",
-            "Choose exactly one valid action. Prefer useful same-field principals for client agents. Respect contact and negotiation limits.",
-            "If you already have a relevant contact and negotiation capacity, prefer request_negotiation over adding more contacts.",
-            "If an inbound negotiation is requested and relevant, accept it. If an open negotiation fits, move toward proposal or terminal outcome.",
-            json.dumps(context, sort_keys=True),
-        ]
+    package = build_representative_decision_prompt_package(
+        decision_context=context,
+        represented_type=str(context["represented_type"]),
     )
+    return str(package["prompt"])
 
 
 def _execute_raw_decision(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from net_working_platform.experiments.prompts import build_platform_constitution_prompt
+from net_working_platform.experiments.prompts import build_platform_constitution_prompt, build_representative_decision_prompt_package
 from net_working_platform.experiments.scenarios import seed_pairwise_strategy_scenario
 from net_working_platform.experiments.strategies import get_strategy, list_strategies
 from scripts.dev.run_pairwise_strategy_experiment import run_pairwise_strategy_experiment
@@ -33,6 +33,26 @@ def test_platform_constitution_prompt_is_protocol_first() -> None:
     assert "choose exactly one supported protocol action" in prompt
     assert "Strategies are priorities, not permission to bypass protocol validation" in prompt
     assert "Do not invent a central platform match score" in prompt
+
+
+def test_representative_decision_prompt_omits_experiment_endpoint_language() -> None:
+    """Exploratory prompt smoke test; prompt policy is documented in development docs."""
+    package = build_representative_decision_prompt_package(
+        decision_context={
+            "actor_agent_id": "agent_1",
+            "represented_type": "client",
+            "valid_actions": ["request_contact", "defer"],
+        },
+        represented_type="client",
+        represented_portfolio=[{"represented_party_id": "client_1", "target_role": "backend engineer"}],
+    )
+    prompt = str(package["prompt"])
+
+    assert "experiment" not in prompt.lower()
+    assert "endpoint" not in prompt.lower()
+    assert "prefer" not in prompt.lower()
+    assert "Represent these clients" in prompt
+    assert "valid_actions" in prompt
 
 
 def test_pairwise_strategy_scenario_creates_open_negotiation_with_facts(tmp_path: Path) -> None:

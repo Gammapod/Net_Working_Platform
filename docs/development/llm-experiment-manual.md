@@ -15,6 +15,18 @@ The goal is to observe model decisions while preserving the product protocol inv
 - Start with one decision at a time. Do not start with autonomous loops.
 - Record raw model output and validation/execution results in the experiment log.
 
+## Agent Instruction Layering
+
+Agent-facing instructions should be assembled from reusable layers, not written ad hoc inside runner-specific prompts.
+
+1. **Platform-level instructions** describe Net Working Platform action mechanics only: the actor identity, currently available protocol actions, required JSON response shape, and protocol constraints such as using only visible context. This layer must be agent-type agnostic and must not state business goals, strategy preferences, experiment endpoints, or preferred market outcomes.
+2. **Representation context** describes the clients or principals represented by the scheduled agent using structured fields. It may include simple representation-responsibility statements such as matching represented clients to relevant openings or finding relevant candidates for represented principals. Priority information should be represented as data fields whenever possible.
+3. **Strategy/flavor instructions** describe reusable representative style, such as speed, evidence threshold, contact maintenance, negotiation posture, and what signals to weight or ignore. These instructions should be selected by scenario data and shared across experiments instead of embedded directly in runners.
+
+Agent-facing prompts must not disclose that the run is an experiment, test, demo, viewer showcase, benchmark, or scenario. They also must not tell the agent to satisfy an experimental endpoint, form a specific kind of contact, prefer a specific target category, or optimize for graph/viewer output. Experiment purpose belongs in run documentation and logs, not in the prompt shown to the agent. Agents should receive the same kind of representation context they would receive if acting for real represented parties.
+
+Experiment runners may still enforce schedules, action schemas, capacity limits, and validation outside the prompt. Those controls are runner/protocol mechanics; they should not be converted into agent-facing business objectives.
+
 ## Standard Experiment Flow
 
 1. Select or seed a known scenario.
