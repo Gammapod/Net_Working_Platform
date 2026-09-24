@@ -39,6 +39,7 @@ def timeline_record_from_transcript_record(
         "negotiation_id": record.get("negotiation_id") or _raw_decision_negotiation_id(record.get("raw_decision")),
         "raw_decision": record.get("raw_decision"),
         "validation": validation if validation is not None else record.get("validation"),
+        "skipped": bool(record.get("skipped", False)),
         "protocol_event_delta": record.get("event_delta", []),
         "graph_delta": graph_delta if graph_delta is not None else record.get("graph_delta", empty_graph_delta()),
     }
@@ -116,7 +117,7 @@ def _viewer_turn(record: dict[str, object], edges: list[dict[str, object]]) -> d
         "turn": record.get("turn"),
         "actor_agent_id": record.get("actor_agent_id"),
         "negotiation_id": negotiation_id or None,
-        "action": raw_decision.get("action"),
+        "action": "skipped" if record.get("skipped") else raw_decision.get("action"),
         "validation": record.get("validation"),
         "topic_party_ids": sorted(_topic_party_ids(subject)),
         "protocol_signals": _protocol_signals(record, subject=subject, edges=edges),
@@ -129,6 +130,19 @@ def _protocol_signals(record: dict[str, object], *, subject: object, edges: list
     events = record.get("protocol_event_delta", []) or record.get("event_delta", [])
     if isinstance(events, list) and events:
         return [_signal_from_event(event, edges=edges, subject=subject) for event in events if isinstance(event, dict)]
+    if record.get("skipped"):
+        return [
+            {
+                "turn": record.get("turn"),
+                "type": "skipped",
+                "from_agent_id": record.get("actor_agent_id"),
+                "to_agent_id": None,
+                "negotiation_id": None,
+                "message": "Skipped because no runner action was requested for this actor turn.",
+                "topic_party_ids": [],
+                "payload": {"skipped": True},
+            }
+        ]
     raw_decision = record.get("raw_decision") if isinstance(record.get("raw_decision"), dict) else {}
     actor = str(raw_decision.get("actor_agent_id") or record.get("actor_agent_id") or "")
     negotiation_id = str(raw_decision.get("negotiation_id") or record.get("negotiation_id") or "")

@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import make_url
 
+from net_working_platform.application.graph_mermaid import render_graph_snapshot_mermaid
 from net_working_platform.application.llm_decisions import execute_llm_decision, parse_llm_decision
 from net_working_platform.domain.model import (
     AgentConnection,
@@ -25,6 +26,7 @@ from net_working_platform.domain.model import (
     WeakDiscoveryEdge,
     WeakDiscoveryState,
 )
+from net_working_platform.experiments.scenarios import seed_viewer_showcase_scenario
 from net_working_platform.storage.repositories import (
     SqlAgentConnectionRepository,
     SqlNegotiationRepository,
@@ -48,6 +50,8 @@ class UnifiedScenario:
     db_url: str
     agent_fields: dict[str, str]
     represented_types: dict[str, str]
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]] | None = None
+    strategy_priorities: dict[str, dict[str, object]] | None = None
 
 
 DecisionProvider = Callable[[dict[str, object]], dict[str, Any]]
@@ -63,11 +67,13 @@ def run_unified_agent_lifecycle_experiment(
     decision_provider: DecisionProvider | None = None,
     contact_limit: int = MAX_CONTACTS_PER_AGENT,
     negotiation_limit: int = MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
+    scenario_name: str = "unified-lifecycle",
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     if reset_db:
         _reset_sqlite_database(db_url)
-    scenario = seed_unified_lifecycle_scenario(db_url)
+    scenario = seed_unified_lifecycle_scenario(db_url, scenario_name=scenario_name)
+    initial_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(0))
     transcript = []
     schedule = list(scenario.agent_fields)
     for turn in range(1, turns + 1):
@@ -86,14 +92,27 @@ def run_unified_agent_lifecycle_experiment(
         after_snapshot = _graph_snapshot(db_url, turn=turn, after=True)
         record["graph_delta"] = graph_delta(before_snapshot, after_snapshot)
         transcript.append(record)
-    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit)
+    final_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(turns + 1))
+    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit, scenario_name)
     (output_dir / "transcript.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in transcript), encoding="utf-8")
     write_jsonl(output_dir / "graph_events.jsonl", [_timeline_record_from_transcript_record(r) for r in transcript])
+    _write_graph_artifacts(output_dir, initial_snapshot, final_snapshot)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
 
 
-def seed_unified_lifecycle_scenario(db_url: str) -> UnifiedScenario:
+def seed_unified_lifecycle_scenario(db_url: str, *, scenario_name: str = "unified-lifecycle") -> UnifiedScenario:
+    if scenario_name == "viewer-showcase-llm":
+        seeded = seed_viewer_showcase_scenario(db_url)
+        return UnifiedScenario(
+            db_url=seeded.db_url,
+            agent_fields=seeded.agent_fields,
+            represented_types=seeded.represented_types,
+            represented_portfolios=seeded.represented_portfolios,
+            strategy_priorities=seeded.strategy_priorities,
+        )
+    if scenario_name != "unified-lifecycle":
+        raise ValueError(f"unsupported unified lifecycle scenario: {scenario_name}")
     engine = create_engine(db_url)
     metadata.create_all(engine)
     agent_specs = {
@@ -206,6 +225,8 @@ def _combined_context(
         "actor_agent_id": actor_agent_id,
         "field": field,
         "represented_type": represented_type,
+        "represented_portfolio": list((scenario.represented_portfolios or {}).get(actor_agent_id, [])),
+        "strategy_priority": (scenario.strategy_priorities or {}).get(actor_agent_id, {}),
         "contact_limit": contact_limit,
         "contacts": contacts,
         "contact_slots_remaining": max(contact_limit - len(contacts), 0),
@@ -294,6 +315,8 @@ def _prompt(context: dict[str, object]) -> str:
     package = build_representative_decision_prompt_package(
         decision_context=context,
         represented_type=str(context["represented_type"]),
+        represented_portfolio=context.get("represented_portfolio") if isinstance(context.get("represented_portfolio"), list) else None,
+        strategy_priority=context.get("strategy_priority") if isinstance(context.get("strategy_priority"), dict) else None,
     )
     return str(package["prompt"])
 
@@ -364,6 +387,7 @@ def _summary(
     reset_db: bool,
     contact_limit: int,
     negotiation_limit: int,
+    scenario_name: str,
 ) -> dict[str, object]:
     engine = create_engine(db_url)
     with engine.begin() as connection:
@@ -371,7 +395,8 @@ def _summary(
         negotiation_rows = connection.execute(select(negotiations)).all()
         event_rows = connection.execute(select(protocol_events)).all()
     return {
-        "scenario": "unified_agent_lifecycle",
+        "scenario": scenario_name,
+        "runner": "unified_agent_lifecycle",
         "baseline_model": baseline_model,
         "reset_db": reset_db,
         "turns": len(transcript),
@@ -399,6 +424,13 @@ def _graph_snapshot(db_url: str, *, turn: int, after: bool) -> dict[str, object]
 
 def _timeline_record_from_transcript_record(record: dict[str, object]) -> dict[str, object]:
     return timeline_record_from_transcript_record(record, validation={"valid": record.get("error") is None})
+
+
+def _write_graph_artifacts(output_dir: Path, initial_snapshot: dict[str, object], final_snapshot: dict[str, object]) -> None:
+    (output_dir / "initial_graph.json").write_text(json.dumps(initial_snapshot, indent=2, sort_keys=True), encoding="utf-8")
+    (output_dir / "final_graph.json").write_text(json.dumps(final_snapshot, indent=2, sort_keys=True), encoding="utf-8")
+    (output_dir / "initial_graph.mmd").write_text(render_graph_snapshot_mermaid(initial_snapshot), encoding="utf-8")
+    (output_dir / "final_graph.mmd").write_text(render_graph_snapshot_mermaid(final_snapshot), encoding="utf-8")
 
 
 def _request_openai_json(*, prompt: str, model: str, json_schema: dict[str, object]) -> dict[str, Any]:
@@ -461,6 +493,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline-model", default="gpt-4o-mini")
     parser.add_argument("--contact-limit", type=int, default=MAX_CONTACTS_PER_AGENT)
     parser.add_argument("--negotiation-limit", type=int, default=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT)
+    parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm"])
     parser.add_argument("--reset-db", action="store_true")
     args = parser.parse_args(argv)
     print(json.dumps(run_unified_agent_lifecycle_experiment(
@@ -471,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
         reset_db=args.reset_db,
         contact_limit=args.contact_limit,
         negotiation_limit=args.negotiation_limit,
+        scenario_name=args.scenario,
     ), indent=2, sort_keys=True))
     return 0
 

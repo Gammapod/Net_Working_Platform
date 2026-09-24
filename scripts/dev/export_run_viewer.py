@@ -459,7 +459,7 @@ def _viewer_html(
           ['Turn', selectedEvent.turn || selectedTurnIndex + 1],
           ['Actor', selectedEvent.actor_agent_id || 'n/a'],
           ['Negotiation', selectedEvent.negotiation_id || 'n/a'],
-          ['Action', rawDecision(selectedEvent).action || 'n/a'],
+          ['Action', selectedEvent.action || rawDecision(selectedEvent).action || 'n/a'],
         ] : [['Scenario', summary.scenario || 'unknown']],
         related: selectedEvent ? [selectedEvent] : [],
         raw: record,
@@ -470,7 +470,7 @@ def _viewer_html(
       const root = document.getElementById('timeline');
       root.innerHTML = '';
       viewerTurns.forEach((event, index) => {{
-        const action = event.action || (event.raw_decision && event.raw_decision.action) || 'unknown';
+        const action = event.action || (event.raw_decision && event.raw_decision.action) || (event.skipped ? 'skipped' : 'unknown');
         const button = document.createElement('button');
         button.className = 'timeline-item' + (index === selectedTurnIndex ? ' active' : '');
         button.textContent = `Turn ${{event.turn || index + 1}}: ${{event.actor_agent_id || 'unknown'}} → ${{action}}`;
