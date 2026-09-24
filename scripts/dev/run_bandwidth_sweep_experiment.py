@@ -18,6 +18,8 @@ def run_bandwidth_sweep_experiment(
     repetitions: int,
     turns: int,
     baseline_model: str = "gpt-4o-mini",
+    scenario_name: str = "unified-lifecycle",
+    seed_variant: str = "default",
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     db_dir.mkdir(parents=True, exist_ok=True)
@@ -36,11 +38,18 @@ def run_bandwidth_sweep_experiment(
                     reset_db=True,
                     contact_limit=contact_limit,
                     negotiation_limit=negotiation_limit,
+                    scenario_name=scenario_name,
+                    seed_variant=seed_variant,
                 )
                 runs.append(summary)
     aggregate = _aggregate_runs(runs)
     result = {
         "scenario": "bandwidth_sweep",
+        "runner": "bandwidth_sweep_adapter",
+        "runner_family": "adapter",
+        "standard_runner": "unified-lifecycle",
+        "seed_id": scenario_name,
+        "seed_variant": seed_variant,
         "baseline_model": baseline_model,
         "turns": turns,
         "repetitions": repetitions,
@@ -101,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--turns", type=int, default=100)
     parser.add_argument("--baseline-model", default="gpt-4o-mini")
+    parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm"])
+    parser.add_argument("--seed-variant", default="default")
     args = parser.parse_args(argv)
     print(
         json.dumps(
@@ -112,6 +123,8 @@ def main(argv: list[str] | None = None) -> int:
                 repetitions=args.repetitions,
                 turns=args.turns,
                 baseline_model=args.baseline_model,
+                scenario_name=args.scenario,
+                seed_variant=args.seed_variant,
             ),
             indent=2,
             sort_keys=True,

@@ -1,5 +1,7 @@
 # LLM Experiment Manual
 
+> Legacy/disposable refactor note: this manual reflects early one-off supervised LLM procedures. New experiments should use the standard runner/seed model in `docs/development/experiment-harness-refactor-plan.md`. Keep safety rules and instruction-layer principles that remain valid; archive or delete obsolete runner-specific commands after migration.
+
 This manual defines the repeatable process for supervised LLM experiments against Net Working Platform.
 
 The goal is to observe model decisions while preserving the product protocol invariants. Experiments must keep the model behind a validated decision contract and must execute decisions through application services.

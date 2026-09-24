@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 
 from net_working_platform.experiments.prompts import build_platform_constitution_prompt, build_representative_decision_prompt_package
-from net_working_platform.experiments.scenarios import seed_pairwise_strategy_scenario
+from net_working_platform.experiments.scenarios import seed_pairwise_strategy_scenario, seed_viewer_showcase_scenario
 from net_working_platform.experiments.strategies import get_strategy, list_strategies
-from scripts.dev.run_pairwise_strategy_experiment import run_pairwise_strategy_experiment
+from scripts.dev.run_negotiation_experiment import run_negotiation_experiment
+from scripts.dev.run_unified_agent_lifecycle_experiment import _to_llm_decision_raw, _unified_turn_schema
 
 
 def test_strategy_catalog_exposes_role_specific_data() -> None:
@@ -74,70 +75,108 @@ def test_pairwise_strategy_scenario_creates_open_negotiation_with_facts(tmp_path
     assert scenario.represented_party_profiles_by_agent["principal_agent"][0].facts["employment_type"].value == ["salaried W-2"]
 
 
-def test_pairwise_strategy_runner_writes_transcript_summary_and_strategy_metadata(tmp_path: Path) -> None:
-    """Exploratory runner smoke test; invariants are protected by narrower tooling tests."""
-    db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
-    output_dir = tmp_path / "pairwise_run"
-    prompts: list[str] = []
+def test_viewer_showcase_seed_variants_include_disclosable_fact_profiles(tmp_path: Path) -> None:
+    """Exploratory reusable-seed smoke test; protocol disclosure behavior is covered elsewhere."""
+    scenario = seed_viewer_showcase_scenario(
+        f"sqlite+pysqlite:///{tmp_path / 'viewer_showcase.db'}",
+        variant="small",
+    )
 
-    def fake_provider(prompt: str) -> dict[str, object]:
-        prompts.append(prompt)
-        assert "Platform constitution" in prompt
-        assert "CLIENT-FAST-ANY" in prompt
-        assert "PRINCIPAL-FAST-MINIMUMS" in prompt
-        return {
+    assert scenario.seed_id == "viewer-showcase"
+    assert scenario.seed_variant == "small"
+    assert len(scenario.client_agent_ids) == 2
+    assert len(scenario.principal_agent_ids) == 2
+    for agent_id, profiles in scenario.represented_party_profiles_by_agent.items():
+        fields = [field for profile in profiles for field in profile.facts]
+        assert fields
+        assert len(fields) == len(set(fields)), agent_id
+
+
+def test_unified_lifecycle_schema_exposes_available_fact_fields() -> None:
+    context = {
+        "actor_agent_id": "agent_1",
+        "field": "programming",
+        "focus_negotiation_id": "negotiation_1",
+        "decision_context": {
+            "available_fact_disclosures_by_negotiation": {
+                "negotiation_1": [
+                    {"field": "client_1_target_role"},
+                    {"field": "client_1_evidence"},
+                ]
+            }
+        },
+    }
+
+    schema = _unified_turn_schema(context, ["send_message"])
+    raw = _to_llm_decision_raw(
+        {
             "action": "send_message",
-            "negotiation_id": "negotiation_pairwise",
-            "actor_agent_id": "client_agent",
-            "body": "Client can start quickly and meets the backend minimums.",
+            "actor_agent_id": "agent_1",
+            "negotiation_id": "negotiation_1",
+            "body": "Relevant background is available.",
+            "disclose_fact_fields": ["client_1_evidence"],
         }
+    )
 
-    summary = run_pairwise_strategy_experiment(
+    assert "disclose_fact_fields" in schema["required"]
+    assert schema["properties"]["disclose_fact_fields"]["items"]["enum"] == ["client_1_evidence", "client_1_target_role"]
+    assert raw["disclose_fact_fields"] == ["client_1_evidence"]
+
+
+def test_negotiation_only_runner_writes_standard_artifacts(tmp_path: Path) -> None:
+    """Exploratory standard-runner smoke test; protocol invariants are covered elsewhere."""
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'negotiation.db'}"
+    output_dir = tmp_path / "negotiation_run"
+
+    def fake_provider(context: dict[str, object]) -> dict[str, object]:
+        actions = context["decision_context"]["valid_next_actions_by_negotiation"][context["focus_negotiation_id"]]
+        action = "send_message" if "send_message" in actions else actions[0]
+        base = {"action": action, "actor_agent_id": context["actor_agent_id"], "negotiation_id": context["focus_negotiation_id"]}
+        if action == "send_message":
+            return {**base, "body": "Sharing a concise update for the represented party.", "disclose_fact_fields": []}
+        if action == "propose_match":
+            return {**base, "proposal": {"summary": "Plausible fit", "details": "Continue toward a match."}, "disclose_fact_fields": []}
+        if action in {"reject_negotiation", "close_negotiation"}:
+            return {**base, "reason": "Continue the negotiation later."}
+        return base
+
+    summary = run_negotiation_experiment(
         db_url=db_url,
         output_dir=output_dir,
-        client_strategy_id="CLIENT-FAST-ANY",
-        principal_strategy_id="PRINCIPAL-FAST-MINIMUMS",
         turns=1,
-        decision_source="injected_llm",
+        reset_db=True,
         decision_provider=fake_provider,
     )
 
-    transcript = [json.loads(line) for line in (output_dir / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
-    written_summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
-
-    assert summary == written_summary
-    assert len(prompts) == 1
-    assert summary["baseline_model"] == "gpt-4o-mini"
-    assert summary["client_strategy"]["id"] == "CLIENT-FAST-ANY"
-    assert summary["principal_strategy"]["id"] == "PRINCIPAL-FAST-MINIMUMS"
-    assert summary["metrics"]["messages_sent"] == 1
-    assert summary["metrics"]["invalid_attempts"] == 0
-    assert transcript[0]["scheduled_actor_agent_id"] == "client_agent"
-    assert transcript[0]["strategy"]["id"] == "CLIENT-FAST-ANY"
-    assert transcript[0]["event_delta"][0]["type"] == "message"
-    assert transcript[0]["skipped"] is False
+    assert summary["runner_family"] == "negotiation-only"
+    assert summary["seed_id"] == "pairwise-facts"
+    assert summary["metrics"]["errors"] == 0
+    assert (output_dir / "summary.json").exists()
+    assert (output_dir / "transcript.jsonl").exists()
+    assert (output_dir / "graph_events.jsonl").exists()
+    assert (output_dir / "initial_graph.json").exists()
+    assert (output_dir / "final_graph.json").exists()
 
 
-def test_pairwise_strategy_runner_rejects_wrong_focus_decision(tmp_path: Path) -> None:
+def test_negotiation_only_runner_rejects_wrong_focus_decision(tmp_path: Path) -> None:
     """Exploratory runner smoke test; focus enforcement is protected by narrower tooling tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     output_dir = tmp_path / "pairwise_run"
 
-    def wrong_actor_provider(prompt: str) -> dict[str, object]:
+    def wrong_actor_provider(context: dict[str, object]) -> dict[str, object]:
         return {
             "action": "send_message",
             "negotiation_id": "negotiation_pairwise",
             "actor_agent_id": "principal_agent",
             "body": "Wrong scheduled actor should not execute.",
+            "disclose_fact_fields": [],
         }
 
-    summary = run_pairwise_strategy_experiment(
+    summary = run_negotiation_experiment(
         db_url=db_url,
         output_dir=output_dir,
-        client_strategy_id="CLIENT-FAST-ANY",
-        principal_strategy_id="PRINCIPAL-FAST-MINIMUMS",
         turns=1,
-        decision_source="injected_llm",
+        reset_db=True,
         decision_provider=wrong_actor_provider,
     )
 
@@ -151,26 +190,24 @@ def test_pairwise_strategy_runner_rejects_wrong_focus_decision(tmp_path: Path) -
     assert transcript[0]["event_delta"] == []
 
 
-def test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions(tmp_path: Path) -> None:
+def test_negotiation_only_runner_rejects_action_not_in_valid_next_actions(tmp_path: Path) -> None:
     """Exploratory runner smoke test; action enforcement is protected by narrower tooling tests."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     output_dir = tmp_path / "pairwise_run"
 
-    def invalid_defer_provider(prompt: str) -> dict[str, object]:
+    def invalid_accept_match_provider(context: dict[str, object]) -> dict[str, object]:
         return {
-            "action": "defer",
+            "action": "accept_match",
             "actor_agent_id": "client_agent",
-            "reason": "Should not be valid while negotiation actions are available.",
+            "negotiation_id": "negotiation_pairwise",
         }
 
-    summary = run_pairwise_strategy_experiment(
+    summary = run_negotiation_experiment(
         db_url=db_url,
         output_dir=output_dir,
-        client_strategy_id="CLIENT-FAST-ANY",
-        principal_strategy_id="PRINCIPAL-FAST-MINIMUMS",
         turns=1,
-        decision_source="injected_llm",
-        decision_provider=invalid_defer_provider,
+        reset_db=True,
+        decision_provider=invalid_accept_match_provider,
     )
 
     transcript = [json.loads(line) for line in (output_dir / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -181,36 +218,36 @@ def test_pairwise_strategy_runner_rejects_action_not_in_valid_next_actions(tmp_p
     assert transcript[0]["event_delta"] == []
 
 
-def test_pairwise_strategy_runner_can_reset_existing_sqlite_database(tmp_path: Path) -> None:
+def test_negotiation_only_runner_can_reset_existing_sqlite_database(tmp_path: Path) -> None:
     """Protects repeatable INV-H-004 experiment context generation."""
     db_url = f"sqlite+pysqlite:///{tmp_path / 'pairwise.db'}"
     first_output_dir = tmp_path / "first_pairwise_run"
     second_output_dir = tmp_path / "second_pairwise_run"
 
-    def fake_provider(prompt: str) -> dict[str, object]:
+    def fake_provider(context: dict[str, object]) -> dict[str, object]:
+        actions = context["decision_context"]["valid_next_actions_by_negotiation"][context["focus_negotiation_id"]]
+        action = "send_message" if "send_message" in actions else actions[0]
+        base = {"action": action, "negotiation_id": context["focus_negotiation_id"], "actor_agent_id": context["actor_agent_id"]}
+        if action != "send_message":
+            return base
         return {
+            **base,
             "action": "send_message",
-            "negotiation_id": "negotiation_pairwise",
-            "actor_agent_id": "client_agent",
             "body": "Smoke test only.",
+            "disclose_fact_fields": [],
         }
 
-    run_pairwise_strategy_experiment(
+    run_negotiation_experiment(
         db_url=db_url,
         output_dir=first_output_dir,
-        client_strategy_id="CLIENT-FAST-ANY",
-        principal_strategy_id="PRINCIPAL-FAST-MINIMUMS",
         turns=1,
-        decision_source="injected_llm",
+        reset_db=True,
         decision_provider=fake_provider,
     )
-    summary = run_pairwise_strategy_experiment(
+    summary = run_negotiation_experiment(
         db_url=db_url,
         output_dir=second_output_dir,
-        client_strategy_id="CLIENT-FAST-ANY",
-        principal_strategy_id="PRINCIPAL-FAST-MINIMUMS",
         turns=1,
-        decision_source="injected_llm",
         decision_provider=fake_provider,
         reset_db=True,
     )

@@ -1,5 +1,7 @@
 # LLM Experiment Log
 
+> Legacy/refactor note: this log is historical observation data. During the experiment harness refactor, migrate durable observations and missing-affordance notes into current plans or issues; do not preserve old runner commands as canonical instructions.
+
 This log records supervised LLM decision experiments. Entries should be append-only except for correcting factual errors.
 
 ## Entry Template

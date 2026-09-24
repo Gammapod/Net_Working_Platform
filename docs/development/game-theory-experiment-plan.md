@@ -1,5 +1,7 @@
 # Game-Theory Experiment Plan
 
+> Legacy/disposable refactor note: this plan remains useful for strategy concepts and observed questions, but runner/scenario mechanics should migrate to `docs/development/experiment-harness-refactor-plan.md` and reusable seed data. Archive or delete duplicated runner guidance after the harness refactor.
+
 This plan describes the next experimentation layer after scaled protocol runs. The goal is not to find one best market strategy. The goal is to verify that the platform can facilitate many user-defined strategies and that agents can pursue different goals through the same protocol.
 
 Experiment results and decisions are recorded in [Game-Theory Experiment Log](game-theory-experiment-log.md).

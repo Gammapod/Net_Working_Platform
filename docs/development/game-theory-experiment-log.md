@@ -1,5 +1,7 @@
 # Game-Theory Experiment Log
 
+> Legacy/refactor note: this log is historical observation data. During the experiment harness refactor, migrate durable strategy observations and missing-affordance notes into current plans or issues; do not preserve old runner commands as canonical instructions.
+
 This log records strategy and game-theory experiment runs. Entries are append-only except for correcting factual errors. The log is both an experiment record and a decision log: each entry should preserve the observed problem, the protocol or harness decision made in response, and the result of that change.
 
 ## Entry Template

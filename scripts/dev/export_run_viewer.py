@@ -126,6 +126,8 @@ def _viewer_html(
     .event-card strong {{ color: #172033; }}
     .event-meta {{ font-size: .82rem; color: #5d6880; margin-bottom: .25rem; }}
     .event-message {{ margin-top: .35rem; white-space: pre-wrap; }}
+    .fact-disclosure {{ margin-top: .45rem; padding: .45rem .55rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: .35rem; font-size: .86rem; }}
+    .fact-disclosure div {{ margin-top: .15rem; }}
     details.debug-json summary {{ cursor: pointer; color: #2454d6; font-weight: 700; }}
     .meta {{ display: grid; gap: .25rem; font-size: .9rem; }}
     .muted {{ color: #5d6880; }}
@@ -391,6 +393,7 @@ def _viewer_html(
         from: signal.from_agent_id || '',
         to: signal.to_agent_id || '',
         message: signal.message || '',
+        disclosedFact: signal.disclosed_fact || null,
         raw: signal,
       }}));
       const events = protocolEvents(record);
@@ -399,13 +402,14 @@ def _viewer_html(
         const to = counterpartyFor(event.negotiation_id, from);
         const payload = event.payload || {{}};
         return {{
-          turn: record.turn,
-          signal: event.type || 'protocol_event',
-          from,
-          to,
-          message: payload.body || payload.reason || (payload.proposal && (payload.proposal.summary || payload.proposal.details)) || '',
-          raw: event,
-        }};
+              turn: record.turn,
+              signal: event.type || 'protocol_event',
+              from,
+              to,
+              message: payload.body || payload.reason || (payload.proposal && (payload.proposal.summary || payload.proposal.details)) || '',
+              disclosedFact: event.type === 'fact_disclosed' ? payload : null,
+              raw: event,
+            }};
       }});
       const decision = rawDecision(record);
       const from = decision.actor_agent_id || record.actor_agent_id || '';
@@ -415,8 +419,19 @@ def _viewer_html(
         from,
         to: decision.target_agent_id || counterpartyFor(decision.negotiation_id || record.negotiation_id, from),
         message: decision.body || decision.reason || (decision.proposal && (decision.proposal.summary || decision.proposal.details)) || '',
+        disclosedFact: null,
         raw: decision,
       }}];
+    }}
+
+    function factDisclosureHtml(fact) {{
+      if (!fact) return '';
+      return `<div class="fact-disclosure">
+        <strong>Disclosed Fact</strong>
+        <div><strong>Party:</strong> ${{escapeHtml(fact.represented_party_id || 'n/a')}} (${{escapeHtml(fact.represented_party_type || 'n/a')}})</div>
+        <div><strong>Field:</strong> ${{escapeHtml(fact.field || 'n/a')}} · <strong>Kind:</strong> ${{escapeHtml(fact.kind || 'n/a')}}</div>
+        <div><strong>${{escapeHtml(fact.label || 'Value')}}:</strong> ${{escapeHtml(JSON.stringify(fact.value ?? ''))}}</div>
+      </div>`;
     }}
 
     function timelineHtml(records) {{
@@ -426,6 +441,7 @@ def _viewer_html(
           <div class="event-meta">Turn ${{escapeHtml(row.turn)}} · <strong>${{escapeHtml(row.signal)}}</strong></div>
           <div><strong>From:</strong> ${{escapeHtml(row.from || 'n/a')}} <strong>To:</strong> ${{escapeHtml(row.to || 'n/a')}}</div>
           ${{row.message ? `<div class="event-message">${{escapeHtml(row.message)}}</div>` : ''}}
+          ${{factDisclosureHtml(row.disclosedFact)}}
         </div>`).join('');
     }}
 

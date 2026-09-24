@@ -40,6 +40,7 @@ def run_networking_experiment(
     negotiation_limit: int = MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
     decision_provider: NetworkingDecisionProvider | None = None,
     scenario_name: str = "unified-lifecycle",
+    seed_variant: str = "default",
 ) -> dict[str, object]:
     """Run a networking-only market experiment.
 
@@ -50,7 +51,7 @@ def run_networking_experiment(
     output_dir.mkdir(parents=True, exist_ok=True)
     if reset_db:
         _reset_sqlite_database(db_url)
-    scenario = _seed_networking_scenario(db_url, scenario_name)
+    scenario = _seed_networking_scenario(db_url, scenario_name, seed_variant)
     initial_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(0))
     transcript: list[dict[str, object]] = []
     schedule = list(scenario.agent_fields)
@@ -78,7 +79,7 @@ def run_networking_experiment(
         transcript.append({"turn": turn, "actor_agent_id": actor_agent_id, "context": context, "raw_decision": raw, "execution": execution, "error": error, "skipped": False, "graph_delta": graph_delta(before_snapshot, after_snapshot)})
 
     final_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(turns + 1))
-    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit, scenario_name)
+    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit, scenario_name, seed_variant)
     (output_dir / "transcript.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in transcript), encoding="utf-8")
     write_jsonl(output_dir / "graph_events.jsonl", [timeline_record_from_transcript_record(record) for record in transcript])
     _write_graph_artifacts(output_dir, initial_snapshot, final_snapshot)
@@ -86,11 +87,12 @@ def run_networking_experiment(
     return summary
 
 
-def _seed_networking_scenario(db_url: str, scenario_name: str) -> object:
+def _seed_networking_scenario(db_url: str, scenario_name: str, seed_variant: str) -> object:
     if scenario_name == "unified-lifecycle":
         return seed_unified_lifecycle_scenario(db_url)
     if scenario_name == "viewer-showcase-llm":
-        return seed_viewer_showcase_scenario(db_url)
+        variant = "medium" if seed_variant == "default" else seed_variant
+        return seed_viewer_showcase_scenario(db_url, variant=variant)
     raise ValueError(f"unsupported networking scenario: {scenario_name}")
 
 
@@ -110,12 +112,14 @@ def _networking_context(
         outbound_negotiations = connection.execute(select(negotiations).where(negotiations.c.from_agent_id == actor_agent_id)).all()
         discoverable = discovery.list_discoverable_agents(actor_agent_id=actor_agent_id, field=field)
     contact_targets = {str(contact["to_agent_id"]) for contact in contacts}
+    represented_portfolios = getattr(scenario, "represented_portfolios", None) or {}
+    strategy_priorities = getattr(scenario, "strategy_priorities", None) or {}
     return {
         "actor_agent_id": actor_agent_id,
         "field": field,
         "represented_type": scenario.represented_types[actor_agent_id],
-        "represented_portfolio": list(getattr(scenario, "represented_portfolios", {}).get(actor_agent_id, [])),
-        "strategy_priority": getattr(scenario, "strategy_priorities", {}).get(actor_agent_id, {}),
+        "represented_portfolio": list(represented_portfolios.get(actor_agent_id, [])),
+        "strategy_priority": strategy_priorities.get(actor_agent_id, {}),
         "workflow_complete": len(outbound_negotiations) > 0,
         "contact_limit": contact_limit,
         "contacts": contacts,
@@ -229,6 +233,7 @@ def _summary(
     contact_limit: int,
     negotiation_limit: int,
     scenario_name: str,
+    seed_variant: str,
 ) -> dict[str, object]:
     engine = create_engine(db_url)
     with engine.begin() as connection:
@@ -239,6 +244,9 @@ def _summary(
     return {
         "scenario": scenario_name,
         "runner": "networking",
+        "runner_family": "networking-only",
+        "seed_id": getattr(scenario, "seed_id", scenario_name),
+        "seed_variant": getattr(scenario, "seed_variant", seed_variant),
         "baseline_model": baseline_model,
         "reset_db": reset_db,
         "turns": len(transcript),
@@ -290,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contact-limit", type=int, default=MAX_CONTACTS_PER_AGENT)
     parser.add_argument("--negotiation-limit", type=int, default=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT)
     parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm"])
+    parser.add_argument("--seed-variant", default="default")
     parser.add_argument("--reset-db", action="store_true")
     args = parser.parse_args(argv)
     print(json.dumps(run_networking_experiment(
@@ -301,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             contact_limit=args.contact_limit,
             negotiation_limit=args.negotiation_limit,
             scenario_name=args.scenario,
+            seed_variant=args.seed_variant,
         ), indent=2, sort_keys=True))
     return 0
 

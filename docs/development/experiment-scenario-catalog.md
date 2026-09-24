@@ -1,5 +1,9 @@
 # Experiment Scenario Catalog
 
+> Refactor note: new experiment work should follow `docs/development/experiment-harness-refactor-plan.md`. Scenario facts in this catalog remain useful, but runner-specific instructions should be migrated to the standard runner/seed model and then archived or deleted when duplicated by the new harness docs.
+
+Reusable seed families and variants are cataloged in `docs/development/experiment-seed-catalog.md`.
+
 This catalog documents exploratory scenarios, strategy IDs, and topic fixtures used by Net Working Platform experiments. It is intentionally descriptive, not normative.
 
 Protocol behavior is defined only in `docs/source-of-truth/functional-invariants.md` and protected by deterministic tests. Scenario outcomes recorded here are product-learning inputs; they should not be treated as platform invariants.
@@ -375,18 +379,21 @@ Exploratory questions:
 
 ## Runner Families
 
+The maintained target runner families are defined in `docs/development/experiment-harness-refactor-plan.md`. Phase 5 retired ad-hoc runners from canonical use; replacement paths and deletion criteria are recorded in `docs/development/retired-experiment-runners.md`.
+
 | Runner | Scenario Family | Exploratory Purpose |
 | --- | --- | --- |
-| `scripts.dev.run_supervised_llm_experiment` | inbound/open negotiation scenarios | One-decision supervised LLM experiments. |
-| `scripts.dev.run_scaled_experiment` | two-client/two-principal and parameterized market | Scaled turn scheduling, transcripts, graph snapshots, and summary metrics. |
-| `scripts.dev.run_pairwise_strategy_experiment` | pairwise strategy | Strategy matrix experiments over a single negotiation. |
-| `scripts.dev.run_weak_discovery_experiment` | weak discovery | Same-field discovery/contact behavior. |
-| `scripts.dev.run_networking_experiment` | weak discovery/networking, viewer-showcase-llm | Contact formation and negotiation requests under externally enforced runner limits. |
-| `scripts.dev.run_unified_agent_lifecycle_experiment` | weak discovery plus negotiation lifecycle | Combined discovery, contact, request, and negotiation-action choices. |
-| `scripts.dev.run_topic_selection_networking_experiment` | portfolio topics | Choose exactly one client topic and one principal topic when opening a negotiation. |
-| `scripts.dev.run_partial_topic_proposal_experiment` | portfolio topics | Propose one client topic, then responder fills a principal topic or rejects. |
-| `scripts.dev.run_bandwidth_sweep_experiment` | unified lifecycle | Compare repeated runs across contact and negotiation limits. |
-| `scripts.dev.run_experiment` | versioned seed files | User-facing entrypoint that copies the seed and emits standard inspectable run artifacts. |
+| `scripts.dev.run_networking_experiment` | weak discovery/networking, viewer-showcase-llm | **Standardizing: networking-only.** Contact formation and negotiation requests under externally enforced runner limits. |
+| `scripts.dev.run_unified_agent_lifecycle_experiment` | weak discovery plus negotiation lifecycle, viewer-showcase-llm | **Standardizing: unified lifecycle.** Combined discovery, contact, request, and negotiation-action choices. |
+| `scripts.dev.run_negotiation_experiment` | active negotiation seeds | **Standardizing: negotiation-only.** Starts from requested/open/proposal-pending negotiations and explores negotiation decisions without discovery/contact setup. |
+| `scripts.dev.run_experiment` | versioned seed files | **Standardizing: replay/scripted.** User-facing entrypoint that copies the seed and emits standard inspectable run artifacts. |
+| `scripts.dev.run_supervised_llm_experiment` | inbound/open negotiation scenarios | **Retired from canonical use.** Replacement: negotiation-only or unified lifecycle runner. Preserve useful context-shape observations only. |
+| `scripts.dev.run_scaled_experiment` | two-client/two-principal and parameterized market | **Retired from canonical use.** Replacement: standard seed variants plus unified lifecycle or replay/scripted runner. |
+| `scripts.dev.run_pairwise_strategy_experiment` | pairwise strategy | **Retired from canonical use.** Replacement: negotiation-only runner with `pairwise-facts` and future strategy-matrix seed variants. |
+| `scripts.dev.run_weak_discovery_experiment` | weak discovery | **Retired from canonical use.** Replacement: networking-only runner. |
+| `scripts.dev.run_topic_selection_networking_experiment` | portfolio topics | **Retired from canonical use.** Replacement: reusable portfolio seeds plus networking/unified runners. |
+| `scripts.dev.run_partial_topic_proposal_experiment` | portfolio topics | **Retired from canonical use.** Replacement: negotiation-only or unified lifecycle runner with multi-party portfolio seeds. |
+| `scripts.dev.run_bandwidth_sweep_experiment` | unified lifecycle | **Adapter candidate.** Compare repeated runs across contact and negotiation limits by calling the standard unified lifecycle runner. |
 
 Runner mechanics may have deterministic tests for guardrails, validation, and artifact writing. Runner outcomes, strategy success, and market metrics remain exploratory unless converted into source-of-truth invariants.
 

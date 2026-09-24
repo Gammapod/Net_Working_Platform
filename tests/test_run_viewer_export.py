@@ -7,6 +7,7 @@ import pytest
 
 from scripts.dev.export_run_viewer import export_run_viewer
 from scripts.dev.run_experiment import run_experiment_from_seed
+from net_working_platform.experiments.artifacts import build_viewer_model
 
 
 def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path) -> None:
@@ -71,6 +72,8 @@ def test_export_run_viewer_writes_static_html_from_run_artifacts(tmp_path: Path)
     assert "function protocolSignalRows" in html
     assert "function renderInspection" in html
     assert "function renderSelectedTurnDetails" in html
+    assert "Disclosed Fact" in html
+    assert "function factDisclosureHtml" in html
     assert "cy.on('tap', 'node'" in html
     assert "cy.on('tap', 'edge'" in html
     assert "const stablePositions" in html
@@ -102,3 +105,43 @@ def test_export_run_viewer_reports_missing_run_artifacts(tmp_path: Path) -> None
 
     with pytest.raises(FileNotFoundError, match="Run artifact not found"):
         export_run_viewer(run_dir=run_dir)
+
+
+def test_viewer_model_preserves_fact_disclosure_signals() -> None:
+    """Protects INV-X-004."""
+    model = build_viewer_model(
+        summary={},
+        run_metadata={},
+        seed={},
+        initial_graph={"nodes": [], "edges": []},
+        final_graph={"nodes": [], "edges": [{"id": "negotiation:n1", "kind": "negotiation", "source": "agent_a", "target": "agent_b", "details": {"negotiation_id": "n1", "subject": {"client_id": "client_1"}}}]},
+        transcript=[],
+        graph_events=[
+            {
+                "turn": 1,
+                "actor_agent_id": "agent_a",
+                "negotiation_id": "n1",
+                "protocol_event_delta": [
+                    {
+                        "type": "fact_disclosed",
+                        "actor_agent_id": "agent_a",
+                        "negotiation_id": "n1",
+                        "payload": {
+                            "represented_party_id": "client_1",
+                            "represented_party_type": "client",
+                            "field": "availability",
+                            "kind": "constraint",
+                            "label": "Availability",
+                            "value": "two weeks",
+                        },
+                    }
+                ],
+            }
+        ],
+    )
+
+    signal = model["turns"][0]["protocol_signals"][0]
+    assert signal["type"] == "fact_disclosed"
+    assert signal["message"] == "Disclosed Availability: two weeks"
+    assert signal["disclosed_fact"]["field"] == "availability"
+    assert model["object_timelines"]["nodes"]["client_1"] == [0]

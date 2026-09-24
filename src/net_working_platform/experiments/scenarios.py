@@ -80,12 +80,15 @@ class MarketScenario:
 @dataclass(frozen=True)
 class ViewerShowcaseScenario:
     db_url: str
+    seed_id: str
+    seed_variant: str
     client_agent_ids: tuple[str, ...]
     principal_agent_ids: tuple[str, ...]
     agent_fields: dict[str, str]
     represented_types: dict[str, str]
     represented_portfolios: dict[str, tuple[dict[str, object], ...]]
     strategy_priorities: dict[str, dict[str, object]]
+    represented_party_profiles_by_agent: dict[str, list[RepresentedPartyProfile]]
 
 
 @dataclass(frozen=True)
@@ -1290,7 +1293,7 @@ def _pairwise_fact_profiles_by_agent() -> dict[str, list[RepresentedPartyProfile
     }
 
 
-def seed_viewer_showcase_scenario(db_url: str) -> ViewerShowcaseScenario:
+def seed_viewer_showcase_scenario(db_url: str, *, variant: str = "medium") -> ViewerShowcaseScenario:
     """Create a 10-agent, no-contact showcase market for graph viewer experiments.
 
     The scenario is intentionally exploratory: it seeds field-labeled weak
@@ -1300,6 +1303,8 @@ def seed_viewer_showcase_scenario(db_url: str) -> ViewerShowcaseScenario:
     engine = create_engine(db_url)
     metadata.create_all(engine)
 
+    if variant not in {"small", "medium", "large"}:
+        raise ValueError(f"unsupported viewer showcase variant: {variant}")
     client_agent_ids = tuple(f"showcase_client_agent_{index}" for index in range(1, 6))
     principal_agent_ids = tuple(f"showcase_principal_agent_{index}" for index in range(1, 6))
     agent_fields = {
@@ -1369,6 +1374,22 @@ def seed_viewer_showcase_scenario(db_url: str) -> ViewerShowcaseScenario:
         ]),
     ]
 
+    if variant == "small":
+        selected_agent_ids = {
+            "showcase_client_agent_1",
+            "showcase_client_agent_3",
+            "showcase_principal_agent_1",
+            "showcase_principal_agent_3",
+        }
+    else:
+        selected_agent_ids = set(client_agent_ids + principal_agent_ids)
+    client_profiles = [profile for profile in client_profiles if profile[0] in selected_agent_ids]
+    principal_profiles = [profile for profile in principal_profiles if profile[0] in selected_agent_ids]
+    client_agent_ids = tuple(agent_id for agent_id in client_agent_ids if agent_id in selected_agent_ids)
+    principal_agent_ids = tuple(agent_id for agent_id in principal_agent_ids if agent_id in selected_agent_ids)
+    agent_fields = {agent_id: field for agent_id, field in agent_fields.items() if agent_id in selected_agent_ids}
+    represented_types = {agent_id: represented_type for agent_id, represented_type in represented_types.items() if agent_id in selected_agent_ids}
+
     all_profiles = client_profiles + principal_profiles
     with engine.begin() as connection:
         nodes = SqlNodeRepository(connection)
@@ -1408,12 +1429,15 @@ def seed_viewer_showcase_scenario(db_url: str) -> ViewerShowcaseScenario:
 
     return ViewerShowcaseScenario(
         db_url=db_url,
+        seed_id="viewer-showcase",
+        seed_variant=variant,
         client_agent_ids=client_agent_ids,
         principal_agent_ids=principal_agent_ids,
         agent_fields=agent_fields,
         represented_types=represented_types,
         represented_portfolios=represented_portfolios,
         strategy_priorities=strategy_priorities,
+        represented_party_profiles_by_agent=_showcase_fact_profiles_by_agent(represented_portfolios),
     )
 
 
@@ -1477,6 +1501,93 @@ def _showcase_strategy_priority(strategy_id: str) -> dict[str, object]:
         },
     }
     return strategies[strategy_id]
+
+
+def _showcase_fact_profiles_by_agent(
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]],
+) -> dict[str, list[RepresentedPartyProfile]]:
+    profiles_by_agent: dict[str, list[RepresentedPartyProfile]] = {}
+    for agent_id, profiles in represented_portfolios.items():
+        fact_profiles: list[RepresentedPartyProfile] = []
+        for profile in profiles:
+            represented_type = str(profile["represented_party_type"])
+            represented_party_id = str(profile["represented_party_id"])
+            if represented_type == "client":
+                target_role_field = f"{represented_party_id}_target_role"
+                field_field = f"{represented_party_id}_field"
+                evidence_field = f"{represented_party_id}_evidence"
+                priority_field = f"{represented_party_id}_priority"
+                facts = {
+                    target_role_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Target role",
+                        value=profile["target_role"],
+                    ),
+                    field_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Target field",
+                        value=profile["field"],
+                    ),
+                    evidence_field: RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Relevant evidence",
+                        value=profile["evidence"],
+                    ),
+                    priority_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Client priority",
+                        value=profile["priority"],
+                    ),
+                }
+                priorities = (
+                    {"field": target_role_field, "rank": 1, "importance": "hard"},
+                    {"field": field_field, "rank": 2, "importance": "hard"},
+                    {"field": priority_field, "rank": 3, "importance": "strong"},
+                    {"field": evidence_field, "rank": 4, "importance": "supporting"},
+                )
+            else:
+                role_family_field = f"{represented_party_id}_role_family"
+                field_field = f"{represented_party_id}_field"
+                need_field = f"{represented_party_id}_need"
+                priority_field = f"{represented_party_id}_priority"
+                facts = {
+                    role_family_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Role family",
+                        value=profile["role_family"],
+                    ),
+                    field_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Hiring field",
+                        value=profile["field"],
+                    ),
+                    need_field: RepresentedPartyFact(
+                        kind=FactKind.CONSTRAINT,
+                        label="Hiring need",
+                        value=profile["need"],
+                    ),
+                    priority_field: RepresentedPartyFact(
+                        kind=FactKind.EVIDENCE,
+                        label="Principal priority",
+                        value=profile["priority"],
+                    ),
+                }
+                priorities = (
+                    {"field": need_field, "rank": 1, "importance": "hard"},
+                    {"field": field_field, "rank": 2, "importance": "hard"},
+                    {"field": role_family_field, "rank": 3, "importance": "strong"},
+                    {"field": priority_field, "rank": 4, "importance": "supporting"},
+                )
+            fact_profiles.append(
+                RepresentedPartyProfile(
+                    represented_party_id=represented_party_id,
+                    represented_party_type=represented_type,
+                    facts=facts,
+                    priorities=priorities,
+                )
+            )
+        profiles_by_agent[agent_id] = fact_profiles
+    return profiles_by_agent
 
 
 def _market_role(client_index: int, principal_index: int) -> str:

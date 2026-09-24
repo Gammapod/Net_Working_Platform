@@ -164,15 +164,34 @@ def _signal_from_event(event: dict[str, object], *, edges: list[dict[str, object
     payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     negotiation_id = str(event.get("negotiation_id") or "")
     actor = str(event.get("actor_agent_id") or "")
+    disclosed_fact = _disclosed_fact(payload) if event.get("type") == "fact_disclosed" else None
     return {
         "type": event.get("type"),
         "from_agent_id": actor or None,
         "to_agent_id": payload.get("target_agent_id") or _counterparty(edges, negotiation_id, actor) or None,
         "negotiation_id": negotiation_id or None,
-        "message": payload.get("body") or payload.get("reason") or _proposal_summary(payload.get("proposal")),
+        "message": _fact_message(disclosed_fact) if disclosed_fact else payload.get("body") or payload.get("reason") or _proposal_summary(payload.get("proposal")),
+        "disclosed_fact": disclosed_fact,
         "topic_party_ids": sorted(_topic_party_ids(subject)),
         "payload": payload,
     }
+
+
+def _disclosed_fact(payload: dict[str, object]) -> dict[str, object]:
+    return {
+        "represented_party_id": payload.get("represented_party_id"),
+        "represented_party_type": payload.get("represented_party_type"),
+        "field": payload.get("field"),
+        "kind": payload.get("kind"),
+        "label": payload.get("label"),
+        "value": payload.get("value"),
+    }
+
+
+def _fact_message(disclosed_fact: dict[str, object]) -> str:
+    label = disclosed_fact.get("label") or disclosed_fact.get("field") or "fact"
+    value = disclosed_fact.get("value")
+    return f"Disclosed {label}: {value}"
 
 
 def _object_timelines(*, nodes: list[dict[str, object]], edges: list[dict[str, object]], turns: list[dict[str, object]]) -> dict[str, object]:

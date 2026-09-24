@@ -23,6 +23,7 @@ from net_working_platform.domain.model import (
     NodeType,
     RepresentationEdge,
     RepresentationState,
+    RepresentedPartyProfile,
     WeakDiscoveryEdge,
     WeakDiscoveryState,
 )
@@ -50,8 +51,11 @@ class UnifiedScenario:
     db_url: str
     agent_fields: dict[str, str]
     represented_types: dict[str, str]
+    seed_id: str = "unified-lifecycle"
+    seed_variant: str = "default"
     represented_portfolios: dict[str, tuple[dict[str, object], ...]] | None = None
     strategy_priorities: dict[str, dict[str, object]] | None = None
+    represented_party_profiles_by_agent: dict[str, list[RepresentedPartyProfile]] | None = None
 
 
 DecisionProvider = Callable[[dict[str, object]], dict[str, Any]]
@@ -68,11 +72,12 @@ def run_unified_agent_lifecycle_experiment(
     contact_limit: int = MAX_CONTACTS_PER_AGENT,
     negotiation_limit: int = MAX_ACTIVE_NEGOTIATIONS_PER_AGENT,
     scenario_name: str = "unified-lifecycle",
+    seed_variant: str = "default",
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     if reset_db:
         _reset_sqlite_database(db_url)
-    scenario = seed_unified_lifecycle_scenario(db_url, scenario_name=scenario_name)
+    scenario = seed_unified_lifecycle_scenario(db_url, scenario_name=scenario_name, seed_variant=seed_variant)
     initial_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(0))
     transcript = []
     schedule = list(scenario.agent_fields)
@@ -93,7 +98,7 @@ def run_unified_agent_lifecycle_experiment(
         record["graph_delta"] = graph_delta(before_snapshot, after_snapshot)
         transcript.append(record)
     final_snapshot = graph_snapshot_for_db(db_url, generated_at=_now(turns + 1))
-    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit, scenario_name)
+    summary = _summary(db_url, output_dir, scenario, transcript, baseline_model, reset_db, contact_limit, negotiation_limit, scenario_name, seed_variant)
     (output_dir / "transcript.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in transcript), encoding="utf-8")
     write_jsonl(output_dir / "graph_events.jsonl", [_timeline_record_from_transcript_record(r) for r in transcript])
     _write_graph_artifacts(output_dir, initial_snapshot, final_snapshot)
@@ -101,15 +106,19 @@ def run_unified_agent_lifecycle_experiment(
     return summary
 
 
-def seed_unified_lifecycle_scenario(db_url: str, *, scenario_name: str = "unified-lifecycle") -> UnifiedScenario:
+def seed_unified_lifecycle_scenario(db_url: str, *, scenario_name: str = "unified-lifecycle", seed_variant: str = "default") -> UnifiedScenario:
     if scenario_name == "viewer-showcase-llm":
-        seeded = seed_viewer_showcase_scenario(db_url)
+        variant = "medium" if seed_variant == "default" else seed_variant
+        seeded = seed_viewer_showcase_scenario(db_url, variant=variant)
         return UnifiedScenario(
             db_url=seeded.db_url,
             agent_fields=seeded.agent_fields,
             represented_types=seeded.represented_types,
+            seed_id=seeded.seed_id,
+            seed_variant=seeded.seed_variant,
             represented_portfolios=seeded.represented_portfolios,
             strategy_priorities=seeded.strategy_priorities,
+            represented_party_profiles_by_agent=seeded.represented_party_profiles_by_agent,
         )
     if scenario_name != "unified-lifecycle":
         raise ValueError(f"unsupported unified lifecycle scenario: {scenario_name}")
@@ -210,7 +219,12 @@ def _combined_context(
     represented_type = scenario.represented_types[actor_agent_id]
     with engine.begin() as connection:
         discovery = create_sql_discovery_service(connection, now=lambda: _now(0))
-        negotiation_service = create_sql_negotiation_service(connection, new_id=lambda: "unused", now=lambda: _now(0))
+        negotiation_service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: "unused",
+            now=lambda: _now(0),
+            represented_party_profiles_by_agent=scenario.represented_party_profiles_by_agent,
+        )
         contacts = _contacts_from(connection, actor_agent_id)
         active_negotiations = SqlNegotiationRepository(connection).list_active_for_agent(actor_agent_id)
         decision_context = negotiation_service.get_agent_decision_context(
@@ -272,11 +286,12 @@ def _unified_turn_schema(context: dict[str, object], valid_actions: list[str]) -
     targets = sorted(target_values) or [""]
     focus_negotiation_id = str(context.get("focus_negotiation_id", ""))
     negotiation_ids = [focus_negotiation_id] if focus_negotiation_id else [""]
+    available_fact_fields = _available_fact_fields(context, focus_negotiation_id)
     field = str(context["field"])
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["action", "actor_agent_id", "target_agent_id", "negotiation_id", "field", "reason", "body", "proposal"],
+        "required": ["action", "actor_agent_id", "target_agent_id", "negotiation_id", "field", "reason", "body", "disclose_fact_fields", "proposal"],
         "properties": {
             "action": {"type": "string", "enum": valid_actions},
             "actor_agent_id": {"type": "string", "enum": [str(context["actor_agent_id"])]},
@@ -285,6 +300,7 @@ def _unified_turn_schema(context: dict[str, object], valid_actions: list[str]) -
             "field": {"type": "string", "enum": [field]},
             "reason": {"type": "string"},
             "body": {"type": "string"},
+            "disclose_fact_fields": {"type": "array", "items": {"type": "string", "enum": available_fact_fields}},
             "proposal": {
                 "type": "object",
                 "additionalProperties": False,
@@ -293,6 +309,19 @@ def _unified_turn_schema(context: dict[str, object], valid_actions: list[str]) -
             },
         },
     }
+
+
+def _available_fact_fields(context: dict[str, object], negotiation_id: str) -> list[str]:
+    decision_context = context.get("decision_context", {})
+    if not isinstance(decision_context, dict) or not negotiation_id:
+        return []
+    available = decision_context.get("available_fact_disclosures_by_negotiation", {})
+    if not isinstance(available, dict):
+        return []
+    records = available.get(negotiation_id, [])
+    if not isinstance(records, list):
+        return []
+    return sorted({str(record["field"]) for record in records if isinstance(record, dict) and "field" in record})
 
 
 def _select_focus_negotiation(decision_context: dict[str, object]) -> str | None:
@@ -357,13 +386,21 @@ def _execute_raw_decision(
         return {"executed": False, "action": "defer", "reason": str(raw.get("reason", ""))}
     llm_raw = _to_llm_decision_raw(raw)
     with engine.begin() as connection:
-        service = create_sql_negotiation_service(connection, new_id=lambda: "unused", now=lambda: now)
+        service = create_sql_negotiation_service(
+            connection,
+            new_id=lambda: "unused",
+            now=lambda: now,
+            represented_party_profiles_by_agent=scenario.represented_party_profiles_by_agent,
+        )
         return _jsonable(execute_llm_decision(parse_llm_decision(llm_raw), service))
 
 
 def _to_llm_decision_raw(raw: dict[str, Any]) -> dict[str, object]:
     action = raw["action"]
     base = {"action": action, "actor_agent_id": raw["actor_agent_id"], "negotiation_id": raw["negotiation_id"]}
+    disclose_fact_fields = raw.get("disclose_fact_fields")
+    if action in {"send_message", "propose_match", "accept_match", "close_negotiation"} and isinstance(disclose_fact_fields, list):
+        base["disclose_fact_fields"] = disclose_fact_fields
     if action == "send_message":
         return {**base, "body": raw["body"]}
     if action == "propose_match":
@@ -388,6 +425,7 @@ def _summary(
     contact_limit: int,
     negotiation_limit: int,
     scenario_name: str,
+    seed_variant: str,
 ) -> dict[str, object]:
     engine = create_engine(db_url)
     with engine.begin() as connection:
@@ -397,6 +435,9 @@ def _summary(
     return {
         "scenario": scenario_name,
         "runner": "unified_agent_lifecycle",
+        "runner_family": "unified-lifecycle",
+        "seed_id": getattr(scenario, "seed_id", scenario_name),
+        "seed_variant": getattr(scenario, "seed_variant", seed_variant),
         "baseline_model": baseline_model,
         "reset_db": reset_db,
         "turns": len(transcript),
@@ -494,6 +535,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contact-limit", type=int, default=MAX_CONTACTS_PER_AGENT)
     parser.add_argument("--negotiation-limit", type=int, default=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT)
     parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm"])
+    parser.add_argument("--seed-variant", default="default")
     parser.add_argument("--reset-db", action="store_true")
     args = parser.parse_args(argv)
     print(json.dumps(run_unified_agent_lifecycle_experiment(
@@ -505,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
         contact_limit=args.contact_limit,
         negotiation_limit=args.negotiation_limit,
         scenario_name=args.scenario,
+        seed_variant=args.seed_variant,
     ), indent=2, sort_keys=True))
     return 0
 

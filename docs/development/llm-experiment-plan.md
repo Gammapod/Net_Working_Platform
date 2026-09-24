@@ -1,5 +1,7 @@
 # LLM Experiment Plan
 
+> Legacy/disposable refactor note: this plan records early supervised LLM experiment thinking. New harness design and migration planning live in `docs/development/experiment-harness-refactor-plan.md`. During the refactor, preserve durable observations and delete or archive runner-specific instructions that duplicate the standard runner/seed model.
+
 This document prioritizes supervised LLM experiments against Net Working Platform. It is intentionally higher level than the experiment manual and lower level than the product roadmap.
 
 Use this plan to decide which experiments to run next. Use `docs/development/llm-experiment-manual.md` for how to run experiments, and `docs/development/llm-experiment-log.md` for what happened during specific runs.
