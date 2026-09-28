@@ -66,6 +66,40 @@ Current variants:
 
 - `default`: one client agent, one principal agent, one open negotiation, client/principal fact profiles, and configurable strategy IDs.
 
+### `perfect-match-market`
+
+Purpose:
+
+- Explore whether conservative multi-criteria representative agents can discover and complete matches when strong counterpart overlaps exist but are not labeled as special.
+- Include high-overlap client/principal pairs plus same-field distractors that overlap on fewer criteria.
+- Support long unified lifecycle runs with multiple negotiation rounds per agent.
+
+Current variants:
+
+- `small`: 10 agents, 5 client-side and 5 principal-side representatives, each with one represented party.
+- `medium`: currently aliases the same 10-agent shape until distractor-heavy scaling is introduced.
+
+Disclosable profile data:
+
+- Each represented client/principal exposes field, role/need, compensation, work mode, availability, employment type, evidence, and priority facts.
+- Fact fields include represented-party IDs to avoid ambiguity.
+
+Standard command:
+
+```powershell
+python -m scripts.dev.run_unified_agent_lifecycle_experiment `
+  --scenario perfect-match-market `
+  --seed-variant small `
+  --db-url "sqlite+pysqlite:///runs/perfect-match-market-small.db" `
+  --output-dir "runs/perfect-match-market-small" `
+  --reset-db `
+  --contact-limit 5 `
+  --negotiation-limit 3 `
+  --turns 200
+
+python -m scripts.dev.export_run_viewer --run-dir "runs/perfect-match-market-small"
+```
+
 ## Planned Seed Families
 
 - `pairwise-strategy-matrix`

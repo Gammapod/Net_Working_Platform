@@ -6,6 +6,93 @@ This is the source of truth for MVP protocol behavior. Every automated test that
 
 The MVP is a graph-backed communication platform for representative agents. Agents represent clients and principals, discover same-field weak agent opportunities, form active agent-agent edges, and run structured negotiations over established agent-agent connections.
 
+The protocol should be treated as a state-aware workflow rather than only a list of action signals. The workflow is allowed to evolve through experiments, but deterministic platform behavior becomes normative only when it is captured here and protected by tests.
+
+## Platform Workflow Stages
+
+The platform lifecycle is the workflow for the overall work of the network, not a required single-threaded loop for any individual actor. Different agents may be in different stages at the same time, and contact formation may happen between or alongside negotiations. Protocol commands must nevertheless respect the current state and authorization boundaries of the stage they operate in.
+
+1. **Setup and representation.** Agents are created with represented clients and/or principals. Agents know their represented-party details, their own purpose or strategy, and their initial weak discovery surface. Bandwidth limits in this stage bound how much an agent may represent or initially inspect.
+2. **Contact formation.** Agents use weak discovery or future deterministic contact mechanisms to curate active contacts. Contact formation is separate from negotiation. Bandwidth limits in this stage bound immediate active contacts so agents must curate useful contact lists.
+3. **Lead finding and negotiation opening.** Agents use authorized contacts, and future authorized lead/referral paths, to identify negotiation subjects and request negotiations. Bandwidth limits in this stage bound active negotiation load and prevent spam.
+4. **Negotiation.** Agents discuss a specific client/principal subject, exchange messages and structured facts within bandwidth limits, then either close the negotiation or produce a match. Negotiation context should be scoped to the represented parties under discussion so unrelated represented-party details are not available for accidental disclosure.
+5. **Post-match pathway.** After a match, future protocol may model deterministic interview, introduction, hiring, or follow-up steps. Until such steps are defined here, `matched` remains a terminal protocol state label.
+
+The following high-level workflow invariants define the stage boundaries. Some are already partially protected by more specific invariants below; others are planned guardrails for future implementation work.
+
+### INV-W-001: Workflow Stages Have Explicit State Boundaries
+
+Platform behavior must be implemented as deterministic commands over explicit graph, contact, lead, negotiation, or post-match state. A command valid in one stage must not silently create hidden state transitions in another stage unless the transition is documented by an invariant and append-only event behavior.
+
+Protected by:
+
+- Partially: INV-H-001 through INV-H-005
+- Partially: INV-N-001 through INV-N-009
+- Planned: `test_stage_command_does_not_create_hidden_cross_stage_transition`
+
+### INV-W-002: Bandwidth Limits Exist At Each Workflow Stage
+
+Each workflow stage must have an explicit bounded surface before it is exposed to autonomous agent decision-making. Setup limits bound represented-party and weak-discovery volume; contact limits bound active contacts; lead/opening limits bound active negotiations; negotiation limits bound messages and structured disclosure; post-match limits must be defined before post-match actions become agent-driven.
+
+Protected by:
+
+- Partially: INV-D-003
+- Partially: INV-C-001
+- Partially: INV-N-008
+- Planned: `test_agent_setup_rejects_over_representation_limit`
+- Planned: `test_agent_setup_rejects_over_weak_discovery_limit`
+
+### INV-W-003: Contact Formation Is Separate From Negotiation
+
+Creating, probing, accepting, rejecting, curating, or deactivating contacts must not by itself create or mutate a negotiation. Opening a negotiation must remain an explicit negotiation-opening command with its own authorization and capacity checks.
+
+Protected by:
+
+- Partially: INV-D-001 through INV-D-003
+- Partially: INV-G-001
+- Planned: `test_contact_request_does_not_create_negotiation`
+
+### INV-W-004: Negotiation Opening Requires An Authorized Lead Path
+
+An agent may request a negotiation only through an authorized lead path. The currently implemented lead path is an active agent-agent connection. Future direct-topic proposals, referrals, relays, or other lead mechanisms must define their authorization, spam prevention, capacity behavior, and event history before they can open negotiations.
+
+Protected by:
+
+- Partially: INV-G-001
+- Partially: INV-C-001
+- Planned: `test_negotiation_request_rejects_unauthorized_lead_path`
+
+### INV-W-005: Negotiation Context Is Scoped To The Subject
+
+During a negotiation, agent-facing decision context must expose only represented-party details relevant to that negotiation's subject and the actor's role in it. Unrelated clients or principals represented by the same agent must not be available for accidental disclosure in that negotiation context.
+
+Protected by:
+
+- Partially: INV-F-001 through INV-F-003
+- Partially: INV-H-004
+- Planned: `test_negotiation_context_excludes_unrelated_represented_parties`
+
+### INV-W-006: Post-Match Behavior Is Deterministic Before It Is Agent-Driven
+
+Until post-match workflow steps are defined, `matched` is terminal. Any future post-match interview, introduction, hiring, rejection, or follow-up path must define deterministic states, valid commands, bandwidth/capacity limits, event history, and context boundaries before autonomous agents may act in that stage.
+
+Protected by:
+
+- Partially: INV-N-006
+- Planned: `test_matched_negotiation_does_not_expose_post_match_actions_before_defined`
+
+## Open Workflow Design Questions
+
+These questions are intentionally not yet platform invariants. Experiments may explore them, but the answers do not become protocol behavior until this document and deterministic tests are updated.
+
+- How initial weak discovery edges are generated deterministically.
+- Whether active contacts remain directional, become mutually accepted, or support richer requested/blocked/low-confidence states.
+- Whether topic proposal, ignore, and counter-proposal belong before negotiation opening, inside negotiation, or in a separate lead stage.
+- What qualifies as an authorized referral or relay path beyond a direct active contact.
+- What penalties or audit behavior should apply to spammy or low-quality negotiation opening attempts.
+- Which stage-specific agent instructions and priorities are protocol-required versus experiment-specific.
+- What post-match states and commands should exist beyond the current terminal `matched` label.
+
 ## Entity Invariants
 
 ### INV-E-001: Agents Are Graph Nodes

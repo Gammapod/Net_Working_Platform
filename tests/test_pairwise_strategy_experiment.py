@@ -18,9 +18,11 @@ def test_strategy_catalog_exposes_role_specific_data() -> None:
         "CLIENT-FAST-ANY",
         "CLIENT-INCOME-FIELD",
         "CLIENT-ADJACENT-PIVOT",
+        "CLIENT-CONSERVATIVE-MULTI",
         "PRINCIPAL-CREDENTIAL-MAX",
         "PRINCIPAL-FAST-MINIMUMS",
         "PRINCIPAL-EVIDENCE-ADJACENT",
+        "PRINCIPAL-CONSERVATIVE-MULTI",
     }
     assert get_strategy("CLIENT-FAST-ANY").role == "client"
     assert get_strategy("PRINCIPAL-EVIDENCE-ADJACENT").role == "principal"

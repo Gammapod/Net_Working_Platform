@@ -95,6 +95,24 @@ Failure modes to watch:
 - accepts old-field roles inconsistent with the pivot goal;
 - fails to provide evidence when counterpart asks for proof.
 
+### CLIENT-CONSERVATIVE-MULTI: Conservative Multi-Criteria Fit
+
+Represented party goal: advance only when several independent criteria support the opportunity.
+
+Priority order:
+
+1. Require field, role, compensation/employment shape, and working-condition alignment before proposing or accepting.
+2. Use fact disclosure and questions to verify missing criteria.
+3. Avoid field-only or single-signal matches even if they are fast.
+4. Close or keep gathering evidence when multiple criteria remain unresolved.
+
+Expected behavior:
+
+- discloses relevant constraints and evidence when negotiating;
+- asks for counterpart facts across several criteria before proposing;
+- proposes or accepts only after multiple criteria align;
+- rejects or closes plausible but under-evidenced opportunities.
+
 ## Principal-Side Strategies
 
 ### PRINCIPAL-CREDENTIAL-MAX: Most Credentialed Candidate, Cost Conscious
@@ -168,6 +186,24 @@ Failure modes to watch:
 - accepts unsupported claims of ability;
 - ignores explicit hard constraints;
 - requests evidence repeatedly after sufficient proof has been supplied.
+
+### PRINCIPAL-CONSERVATIVE-MULTI: Conservative Multi-Criteria Hiring
+
+Represented party goal: advance only when several independent criteria support the candidate fit.
+
+Priority order:
+
+1. Require role need, field, compensation/employment shape, availability, and evidence alignment before proposing or accepting.
+2. Use fact disclosure and questions to verify missing criteria.
+3. Avoid field-only or single-signal matches even if the candidate seems promising.
+4. Close or keep gathering evidence when multiple criteria remain unresolved.
+
+Expected behavior:
+
+- discloses relevant role constraints and evidence requirements when negotiating;
+- asks for counterpart facts across several criteria before proposing;
+- proposes or accepts only after multiple criteria align;
+- rejects or closes plausible but under-evidenced candidates.
 
 ## Initial Pairwise Matrix
 

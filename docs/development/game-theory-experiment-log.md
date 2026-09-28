@@ -19,6 +19,66 @@ Result of change:
 Follow-ups:
 ```
 
+## 2026-09-24: Planned Perfect-Match Conservative Market
+
+Model or decision source: OpenAI `gpt-4o-mini` through the standard unified lifecycle runner.
+
+Scenario/matrix: Reusable `perfect-match-market` seed family, variant `small`. The seed contains five client/principal pairs with strong overlap across multiple disclosable fact fields. Agent-facing context does not reveal which pairs are intended high-overlap pairs.
+
+Protocol/harness state:
+
+- Intended runner: `scripts.dev.run_unified_agent_lifecycle_experiment`.
+- Intended seed: `perfect-match-market`, initial variant likely `small` or `medium`.
+- Intended strategy/flavor: conservative multi-criteria representation. Agents should prefer holding off until multiple independent criteria align; they should not propose or accept based on field-only fit.
+- Intended run length: long enough for several rounds of negotiations per agent, likely around 10 agents x 20 rounds = 200 turns for the first pass.
+- Intended limits: consider raising negotiation limit to 3 and contact limit to 4-5 if conservative comparison requires more exploration space.
+- Actual command: `python -m scripts.dev.run_unified_agent_lifecycle_experiment --scenario perfect-match-market --seed-variant small --db-url "sqlite+pysqlite:///runs/perfect-match-market-small-20rounds-20260924.db" --output-dir "runs/perfect-match-market-small-20rounds-20260924" --reset-db --contact-limit 5 --negotiation-limit 3 --turns 200`.
+- Viewer export: `runs/perfect-match-market-small-20rounds-20260924/viewer.html`.
+
+Pre-run observation questions:
+
+- Do agents disclose and request enough facts to identify strong overlaps?
+- Do conservative agents avoid weak field-only matches?
+- Do intended high-overlap pairs reach `matched` more often than distractor pairs?
+- How many turns are needed before strong matches emerge?
+- Do capacity, contact, or negotiation limits prevent discovery of good matches?
+- When high-overlap pairs fail to match, does the transcript suggest model judgment failure, insufficient context, missing protocol affordance, or bandwidth/capacity blockage?
+- Do agents use fact disclosure as evidence for decisions, or do they continue relying mostly on message prose?
+
+Result summary:
+
+- 200 turns completed with 0 errors.
+- Actions: 200 `probe_weak_connection`.
+- Contacts created: 0.
+- Negotiations created: 0.
+- Fact disclosures: 0.
+- Matched negotiations: 0.
+- Because no contacts or negotiations formed, the run did not reach the intended multi-round negotiation phase.
+
+Observed problem:
+
+- Conservative agents repeatedly chose `probe_weak_connection` and never escalated to `request_contact`.
+- The runner/action context allowed repeated probing of weak discovery edges without making probing scarce or marking it complete enough to encourage contact formation.
+- This appears to be a harness/protocol affordance issue more than evidence about whether conservative agents can identify high-overlap matches. The experiment failed before agents had access to negotiation fact disclosure.
+
+Decision/change:
+
+- Treat this as a failed first pass of the perfect-match experiment design.
+- For the follow-up, adjust discovery/contact mechanics or runner policy so repeated probes do not consume the entire run. Candidate changes:
+  - make `probe_weak_connection` unavailable after a successful probe of the same target;
+  - prefer or require `request_contact` after a target has already been probed;
+  - seed initial contacts for perfect-match-market so the experiment starts at negotiation formation;
+  - use negotiation-only seeds for the first conservative-matching test, then reintroduce discovery later.
+
+Result of change: Pending follow-up run.
+
+Follow-ups:
+
+- Decide whether the next run should fix discovery progression or bypass discovery with seeded contacts/open negotiations.
+- If preserving discovery, request a platform/protocol affordance for probe exhaustion or probe-result memory in valid action selection.
+- If focusing on conservative matching behavior first, create a `perfect-match-market` negotiation-only or pre-contact variant.
+- Re-run for 200 turns only after agents can reach contact/negotiation stages.
+
 ## 2026-09-20: Pairwise Strategy Matrix Iteration Summary
 
 Model or decision source: OpenAI `gpt-4o-mini` through the dev-only OpenAI Responses adapter.

@@ -1441,6 +1441,166 @@ def seed_viewer_showcase_scenario(db_url: str, *, variant: str = "medium") -> Vi
     )
 
 
+def seed_perfect_match_market_scenario(db_url: str, *, variant: str = "small") -> ViewerShowcaseScenario:
+    """Create a conservative multi-criteria market with intentionally strong hidden overlaps.
+
+    The seed metadata and fact values create five high-overlap client/principal
+    pairs plus many weaker same-field distractors. Agent-facing context does not
+    identify the intended pairs as special.
+    """
+    if variant not in {"small", "medium"}:
+        raise ValueError(f"unsupported perfect match market variant: {variant}")
+    engine = create_engine(db_url)
+    metadata.create_all(engine)
+
+    client_agent_ids = tuple(f"perfect_client_agent_{index}" for index in range(1, 6))
+    principal_agent_ids = tuple(f"perfect_principal_agent_{index}" for index in range(1, 6))
+    agent_fields = {agent_id: "software" for agent_id in client_agent_ids + principal_agent_ids}
+    represented_types = {agent_id: "client" for agent_id in client_agent_ids} | {
+        agent_id: "principal" for agent_id in principal_agent_ids
+    }
+    profiles = [
+        {
+            "index": 1,
+            "role": "backend platform engineer",
+            "compensation": "$150k-$170k",
+            "work_mode": "remote-first US time zones",
+            "availability": "can start within 30 days",
+            "employment_type": "salaried W-2",
+            "evidence": "Python services, Postgres, API reliability ownership",
+            "principal_need": "backend platform engineer for API reliability",
+        },
+        {
+            "index": 2,
+            "role": "frontend accessibility engineer",
+            "compensation": "$135k-$155k",
+            "work_mode": "hybrid New York",
+            "availability": "can start next quarter",
+            "employment_type": "salaried W-2",
+            "evidence": "React design systems and WCAG audits",
+            "principal_need": "frontend accessibility engineer for design systems",
+        },
+        {
+            "index": 3,
+            "role": "data platform engineer",
+            "compensation": "$160k-$185k",
+            "work_mode": "remote EU overlap",
+            "availability": "available after six weeks",
+            "employment_type": "salaried W-2",
+            "evidence": "Airflow, dbt, warehouse reliability, on-call ownership",
+            "principal_need": "data platform engineer for warehouse reliability",
+        },
+        {
+            "index": 4,
+            "role": "ML evaluation tooling engineer",
+            "compensation": "$170k-$195k",
+            "work_mode": "remote-first North America",
+            "availability": "can start in two weeks",
+            "employment_type": "salaried W-2",
+            "evidence": "model evaluation harnesses, Python notebooks, experiment tracking",
+            "principal_need": "ML evaluation tooling engineer for eval infrastructure",
+        },
+        {
+            "index": 5,
+            "role": "application security engineer",
+            "compensation": "$155k-$180k",
+            "work_mode": "hybrid Bay Area",
+            "availability": "can start after current notice period",
+            "employment_type": "salaried W-2",
+            "evidence": "appsec reviews, threat modeling, secure SDLC enablement",
+            "principal_need": "application security engineer for product threat modeling",
+        },
+    ]
+    if variant == "small":
+        profiles = profiles[:5]
+
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]] = {}
+    strategy_priorities: dict[str, dict[str, object]] = {}
+    with engine.begin() as connection:
+        nodes = SqlNodeRepository(connection)
+        reps = SqlRepresentationEdgeRepository(connection)
+        weak = SqlWeakDiscoveryEdgeRepository(connection)
+        for profile in profiles:
+            index = int(profile["index"])
+            client_agent_id = f"perfect_client_agent_{index}"
+            principal_agent_id = f"perfect_principal_agent_{index}"
+            client_id = f"perfect_client_{index}"
+            principal_id = f"perfect_principal_{index}"
+            client_profile = {
+                "represented_party_id": client_id,
+                "represented_party_type": "client",
+                "display_name": client_id.replace("_", " ").title(),
+                "field": "software",
+                "target_role": profile["role"],
+                "compensation": profile["compensation"],
+                "work_mode": profile["work_mode"],
+                "availability": profile["availability"],
+                "employment_type": profile["employment_type"],
+                "evidence": profile["evidence"],
+                "priority": "hold for opportunities matching multiple disclosed criteria",
+            }
+            principal_profile = {
+                "represented_party_id": principal_id,
+                "represented_party_type": "principal",
+                "display_name": principal_id.replace("_", " ").title(),
+                "field": "software",
+                "role_family": profile["role"],
+                "need": profile["principal_need"],
+                "compensation": profile["compensation"],
+                "work_mode": profile["work_mode"],
+                "availability": profile["availability"],
+                "employment_type": profile["employment_type"],
+                "evidence_required": profile["evidence"],
+                "priority": "hold for candidates matching multiple disclosed criteria",
+            }
+            represented_portfolios[client_agent_id] = (client_profile,)
+            represented_portfolios[principal_agent_id] = (principal_profile,)
+            strategy_priorities[client_agent_id] = _perfect_match_strategy_priority("CLIENT-CONSERVATIVE-MULTI")
+            strategy_priorities[principal_agent_id] = _perfect_match_strategy_priority("PRINCIPAL-CONSERVATIVE-MULTI")
+            nodes.add(Node(client_agent_id, NodeType.AGENT), display_name=client_agent_id.replace("_", " ").title())
+            nodes.add(Node(principal_agent_id, NodeType.AGENT), display_name=principal_agent_id.replace("_", " ").title())
+            nodes.add(Node(client_id, NodeType.CLIENT), display_name=str(client_profile["display_name"]))
+            nodes.add(Node(principal_id, NodeType.PRINCIPAL), display_name=str(principal_profile["display_name"]))
+            reps.add(RepresentationEdge(client_agent_id, client_id, NodeType.CLIENT, RepresentationState.ACTIVE))
+            reps.add(RepresentationEdge(principal_agent_id, principal_id, NodeType.PRINCIPAL, RepresentationState.ACTIVE))
+
+        for from_agent_id, from_type in represented_types.items():
+            if from_agent_id not in represented_portfolios:
+                continue
+            for to_agent_id, to_type in represented_types.items():
+                if to_agent_id not in represented_portfolios or from_agent_id == to_agent_id or from_type == to_type:
+                    continue
+                weak.add(
+                    WeakDiscoveryEdge(
+                        from_agent_id=from_agent_id,
+                        to_agent_id=to_agent_id,
+                        field="software",
+                        state=WeakDiscoveryState.AVAILABLE,
+                        rationale={
+                            "reason": "perfect_match_market_same_field",
+                            "field": "software",
+                            "target_represented_type": to_type,
+                        },
+                    )
+                )
+
+    represented_portfolios = {key: value for key, value in represented_portfolios.items()}
+    agent_fields = {key: value for key, value in agent_fields.items() if key in represented_portfolios}
+    represented_types = {key: value for key, value in represented_types.items() if key in represented_portfolios}
+    return ViewerShowcaseScenario(
+        db_url=db_url,
+        seed_id="perfect-match-market",
+        seed_variant=variant,
+        client_agent_ids=tuple(agent_id for agent_id in client_agent_ids if agent_id in represented_portfolios),
+        principal_agent_ids=tuple(agent_id for agent_id in principal_agent_ids if agent_id in represented_portfolios),
+        agent_fields=agent_fields,
+        represented_types=represented_types,
+        represented_portfolios=represented_portfolios,
+        strategy_priorities=strategy_priorities,
+        represented_party_profiles_by_agent=_perfect_match_fact_profiles_by_agent(represented_portfolios),
+    )
+
+
 def _showcase_client(
     represented_party_id: str,
     field: str,
@@ -1584,6 +1744,68 @@ def _showcase_fact_profiles_by_agent(
                     represented_party_type=represented_type,
                     facts=facts,
                     priorities=priorities,
+                )
+            )
+        profiles_by_agent[agent_id] = fact_profiles
+    return profiles_by_agent
+
+
+def _perfect_match_strategy_priority(strategy_id: str) -> dict[str, object]:
+    strategies = {
+        "CLIENT-CONSERVATIVE-MULTI": {
+            "strategy_id": "CLIENT-CONSERVATIVE-MULTI",
+            "role": "client",
+            "priority": "hold for opportunities that satisfy several disclosed criteria, not field fit alone",
+        },
+        "PRINCIPAL-CONSERVATIVE-MULTI": {
+            "strategy_id": "PRINCIPAL-CONSERVATIVE-MULTI",
+            "role": "principal",
+            "priority": "hold for candidates that satisfy several disclosed criteria, not field fit alone",
+        },
+    }
+    return strategies[strategy_id]
+
+
+def _perfect_match_fact_profiles_by_agent(
+    represented_portfolios: dict[str, tuple[dict[str, object], ...]],
+) -> dict[str, list[RepresentedPartyProfile]]:
+    profiles_by_agent: dict[str, list[RepresentedPartyProfile]] = {}
+    for agent_id, profiles in represented_portfolios.items():
+        fact_profiles: list[RepresentedPartyProfile] = []
+        for profile in profiles:
+            represented_party_id = str(profile["represented_party_id"])
+            represented_type = str(profile["represented_party_type"])
+            common_facts = {
+                f"{represented_party_id}_field": RepresentedPartyFact(FactKind.CONSTRAINT, "Field", profile["field"]),
+                f"{represented_party_id}_compensation": RepresentedPartyFact(FactKind.CONSTRAINT, "Compensation range", profile["compensation"]),
+                f"{represented_party_id}_work_mode": RepresentedPartyFact(FactKind.CONSTRAINT, "Work mode", profile["work_mode"]),
+                f"{represented_party_id}_availability": RepresentedPartyFact(FactKind.CONSTRAINT, "Availability", profile["availability"]),
+                f"{represented_party_id}_employment_type": RepresentedPartyFact(FactKind.CONSTRAINT, "Employment type", profile["employment_type"]),
+            }
+            if represented_type == "client":
+                facts = {
+                    **common_facts,
+                    f"{represented_party_id}_target_role": RepresentedPartyFact(FactKind.CONSTRAINT, "Target role", profile["target_role"]),
+                    f"{represented_party_id}_evidence": RepresentedPartyFact(FactKind.EVIDENCE, "Evidence", profile["evidence"]),
+                    f"{represented_party_id}_priority": RepresentedPartyFact(FactKind.CONSTRAINT, "Priority", profile["priority"]),
+                }
+            else:
+                facts = {
+                    **common_facts,
+                    f"{represented_party_id}_role_family": RepresentedPartyFact(FactKind.CONSTRAINT, "Role family", profile["role_family"]),
+                    f"{represented_party_id}_need": RepresentedPartyFact(FactKind.CONSTRAINT, "Hiring need", profile["need"]),
+                    f"{represented_party_id}_evidence_required": RepresentedPartyFact(FactKind.EVIDENCE, "Evidence required", profile["evidence_required"]),
+                    f"{represented_party_id}_priority": RepresentedPartyFact(FactKind.CONSTRAINT, "Priority", profile["priority"]),
+                }
+            fact_profiles.append(
+                RepresentedPartyProfile(
+                    represented_party_id=represented_party_id,
+                    represented_party_type=represented_type,
+                    facts=facts,
+                    priorities=tuple(
+                        {"field": field, "rank": rank, "importance": "hard" if rank <= 5 else "strong"}
+                        for rank, field in enumerate(facts, start=1)
+                    ),
                 )
             )
         profiles_by_agent[agent_id] = fact_profiles

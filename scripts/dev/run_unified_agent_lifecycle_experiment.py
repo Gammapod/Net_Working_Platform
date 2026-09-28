@@ -27,7 +27,7 @@ from net_working_platform.domain.model import (
     WeakDiscoveryEdge,
     WeakDiscoveryState,
 )
-from net_working_platform.experiments.scenarios import seed_viewer_showcase_scenario
+from net_working_platform.experiments.scenarios import seed_perfect_match_market_scenario, seed_viewer_showcase_scenario
 from net_working_platform.storage.repositories import (
     SqlAgentConnectionRepository,
     SqlNegotiationRepository,
@@ -110,6 +110,19 @@ def seed_unified_lifecycle_scenario(db_url: str, *, scenario_name: str = "unifie
     if scenario_name == "viewer-showcase-llm":
         variant = "medium" if seed_variant == "default" else seed_variant
         seeded = seed_viewer_showcase_scenario(db_url, variant=variant)
+        return UnifiedScenario(
+            db_url=seeded.db_url,
+            agent_fields=seeded.agent_fields,
+            represented_types=seeded.represented_types,
+            seed_id=seeded.seed_id,
+            seed_variant=seeded.seed_variant,
+            represented_portfolios=seeded.represented_portfolios,
+            strategy_priorities=seeded.strategy_priorities,
+            represented_party_profiles_by_agent=seeded.represented_party_profiles_by_agent,
+        )
+    if scenario_name == "perfect-match-market":
+        variant = "small" if seed_variant == "default" else seed_variant
+        seeded = seed_perfect_match_market_scenario(db_url, variant=variant)
         return UnifiedScenario(
             db_url=seeded.db_url,
             agent_fields=seeded.agent_fields,
@@ -534,7 +547,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline-model", default="gpt-4o-mini")
     parser.add_argument("--contact-limit", type=int, default=MAX_CONTACTS_PER_AGENT)
     parser.add_argument("--negotiation-limit", type=int, default=MAX_ACTIVE_NEGOTIATIONS_PER_AGENT)
-    parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm"])
+    parser.add_argument("--scenario", default="unified-lifecycle", choices=["unified-lifecycle", "viewer-showcase-llm", "perfect-match-market"])
     parser.add_argument("--seed-variant", default="default")
     parser.add_argument("--reset-db", action="store_true")
     args = parser.parse_args(argv)

@@ -100,6 +100,29 @@ _STRATEGIES: tuple[AgentStrategy, ...] = (
         ),
     ),
     AgentStrategy(
+        id="CLIENT-CONSERVATIVE-MULTI",
+        role="client",
+        name="Conservative Multi-Criteria Fit",
+        represented_party_goal="Advance only when several independent criteria support the opportunity.",
+        priority_order=(
+            "Require field, role, compensation/employment shape, and working-condition alignment before proposing or accepting.",
+            "Use fact disclosure and questions to verify missing criteria.",
+            "Avoid field-only or single-signal matches even if they are fast.",
+            "Close or keep gathering evidence when multiple criteria remain unresolved.",
+        ),
+        expected_behaviors=(
+            "Discloses relevant constraints and evidence when negotiating.",
+            "Asks for counterpart facts across several criteria before proposing.",
+            "Proposes or accepts only after multiple criteria align.",
+            "Rejects or closes plausible but under-evidenced opportunities.",
+        ),
+        failure_modes=(
+            "Stalls despite enough disclosed evidence.",
+            "Treats one strong criterion as sufficient for a match.",
+            "Ignores disclosed blockers because field fit is strong.",
+        ),
+    ),
+    AgentStrategy(
         id="PRINCIPAL-CREDENTIAL-MAX",
         role="principal",
         name="Most Credentialed Candidate, Cost Conscious",
@@ -166,6 +189,29 @@ _STRATEGIES: tuple[AgentStrategy, ...] = (
             "Accepts unsupported claims of ability.",
             "Ignores explicit hard constraints.",
             "Requests evidence repeatedly after sufficient proof has been supplied.",
+        ),
+    ),
+    AgentStrategy(
+        id="PRINCIPAL-CONSERVATIVE-MULTI",
+        role="principal",
+        name="Conservative Multi-Criteria Hiring",
+        represented_party_goal="Advance only when several independent criteria support the candidate fit.",
+        priority_order=(
+            "Require role need, field, compensation/employment shape, availability, and evidence alignment before proposing or accepting.",
+            "Use fact disclosure and questions to verify missing criteria.",
+            "Avoid field-only or single-signal matches even if the candidate seems promising.",
+            "Close or keep gathering evidence when multiple criteria remain unresolved.",
+        ),
+        expected_behaviors=(
+            "Discloses relevant role constraints and evidence requirements when negotiating.",
+            "Asks for counterpart facts across several criteria before proposing.",
+            "Proposes or accepts only after multiple criteria align.",
+            "Rejects or closes plausible but under-evidenced candidates.",
+        ),
+        failure_modes=(
+            "Stalls despite enough disclosed evidence.",
+            "Treats one strong criterion as sufficient for a match.",
+            "Ignores disclosed blockers because field fit is strong.",
         ),
     ),
 )
