@@ -70,7 +70,8 @@ Protected by:
 
 - Partially: INV-F-001 through INV-F-003
 - Partially: INV-H-004
-- Planned: `test_negotiation_context_excludes_unrelated_represented_parties`
+- `test_negotiation_context_excludes_unrelated_represented_parties`
+- `test_disclose_fact_rejects_field_from_unrelated_represented_party`
 
 ### INV-W-006: Post-Match Behavior Is Deterministic Before It Is Agent-Driven
 
@@ -320,6 +321,7 @@ Protected by:
 
 - `test_disclose_facts_appends_structured_fact_events`
 - `test_disclose_fact_rejects_unknown_or_unrepresented_field`
+- `test_disclose_fact_rejects_field_from_unrelated_represented_party`
 - `test_agent_decision_context_exposes_available_and_disclosed_facts`
 - `test_execute_llm_decision_discloses_attached_facts_before_protocol_action`
 
@@ -570,9 +572,11 @@ Protected by:
 | `test_message_quota_is_per_actor_per_negotiation` | INV-N-008 |
 | `test_disclose_facts_appends_structured_fact_events` | INV-F-001 |
 | `test_disclose_fact_rejects_unknown_or_unrepresented_field` | INV-F-001 |
+| `test_disclose_fact_rejects_field_from_unrelated_represented_party` | INV-W-005, INV-F-001 |
 | `test_fact_field_is_disclosed_at_most_once_per_negotiation` | INV-F-003 |
 | `test_fact_disclosure_does_not_consume_message_budget` | INV-F-002, INV-N-008 |
 | `test_agent_decision_context_exposes_available_and_disclosed_facts` | INV-F-001, INV-H-004 |
+| `test_negotiation_context_excludes_unrelated_represented_parties` | INV-W-005, INV-F-001, INV-H-004 |
 | `test_propose_match_service_appends_event_for_open_negotiation` | INV-N-005, INV-N-009, INV-H-001 |
 | `test_accept_match_service_requires_prior_proposal` | INV-N-005, INV-N-009 |
 | `test_accept_match_service_marks_negotiation_matched` | INV-N-005, INV-N-009, INV-H-001 |

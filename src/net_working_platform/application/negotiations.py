@@ -193,7 +193,7 @@ class NegotiationService:
 
         disclosures = []
         for field in fields:
-            disclosure = self._fact_disclosure_for_actor_field(actor_agent_id, field)
+            disclosure = self._fact_disclosure_for_actor_field(actor_agent_id, field, negotiation.subject)
             if disclosure is None:
                 raise ProtocolViolation("unknown represented-party fact")
             profile, fact = disclosure
@@ -297,7 +297,7 @@ class NegotiationService:
         }
 
         available_fact_disclosures = {
-            negotiation.id: self._available_fact_disclosures(agent_id, histories[negotiation.id])
+            negotiation.id: self._available_fact_disclosures(agent_id, negotiation.subject, histories[negotiation.id])
             for negotiation in active_negotiations
         }
 
@@ -339,19 +339,31 @@ class NegotiationService:
             context["capacity_remaining"] = max(max_active_negotiations - active_load, 0)
         return context
 
-    def _fact_disclosure_for_actor_field(self, actor_agent_id: str, field: str) -> tuple[RepresentedPartyProfile, object] | None:
+    def _fact_disclosure_for_actor_field(
+        self,
+        actor_agent_id: str,
+        field: str,
+        subject: dict[str, object],
+    ) -> tuple[RepresentedPartyProfile, object] | None:
         matches = [
             (profile, profile.facts[field])
             for profile in self._represented_party_profiles_by_agent.get(actor_agent_id, [])
-            if field in profile.facts
+            if field in profile.facts and _profile_is_in_negotiation_subject(profile, subject)
         ]
         if len(matches) > 1:
             raise ProtocolViolation("ambiguous represented-party fact")
         return matches[0] if matches else None
 
-    def _available_fact_disclosures(self, actor_agent_id: str, history: list[ProtocolEvent]) -> list[dict[str, object]]:
+    def _available_fact_disclosures(
+        self,
+        actor_agent_id: str,
+        subject: dict[str, object],
+        history: list[ProtocolEvent],
+    ) -> list[dict[str, object]]:
         records: list[dict[str, object]] = []
         for profile in self._represented_party_profiles_by_agent.get(actor_agent_id, []):
+            if not _profile_is_in_negotiation_subject(profile, subject):
+                continue
             priority_by_field = {
                 str(priority.get("field")): priority
                 for priority in profile.priorities
@@ -435,6 +447,23 @@ def _message_count_for_actor(history: list[ProtocolEvent], actor_agent_id: str) 
         for event in history
         if event.type == ProtocolEventType.MESSAGE and event.actor_agent_id == actor_agent_id
     )
+
+
+def _profile_is_in_negotiation_subject(profile: RepresentedPartyProfile, subject: dict[str, object]) -> bool:
+    scoped_ids = _represented_party_ids_from_subject(subject)
+    if not scoped_ids:
+        return True
+    return profile.represented_party_id in scoped_ids
+
+
+def _represented_party_ids_from_subject(subject: dict[str, object]) -> set[str]:
+    ids: set[str] = set()
+    for key, value in subject.items():
+        if key == "represented_party_ids" and isinstance(value, list):
+            ids.update(str(item) for item in value if isinstance(item, str))
+        elif key in {"client_id", "principal_id", "represented_party_id"} and isinstance(value, str):
+            ids.add(value)
+    return ids
 
 
 def _fact_already_disclosed(history: list[ProtocolEvent], represented_party_id: str, field: str) -> bool:

@@ -83,6 +83,20 @@ def client_profile() -> RepresentedPartyProfile:
     )
 
 
+def unrelated_client_profile() -> RepresentedPartyProfile:
+    return RepresentedPartyProfile(
+        represented_party_id="other_client",
+        represented_party_type="client",
+        facts={
+            "confidential_note": RepresentedPartyFact(
+                kind=FactKind.CONSTRAINT,
+                label="Confidential note for a different client",
+                value="must not be exposed in this negotiation",
+            ),
+        },
+    )
+
+
 def make_service(events: InMemoryEvents | None = None) -> NegotiationService:
     return NegotiationService(
         connections=UnusedConnections(),
@@ -99,6 +113,27 @@ def make_service(events: InMemoryEvents | None = None) -> NegotiationService:
         ),
         events=events or InMemoryEvents(),
         represented_party_profiles_by_agent={"client_agent": [client_profile()]},
+        new_id=lambda: "unused",
+        now=lambda: datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+    )
+
+
+def make_multi_client_service(events: InMemoryEvents | None = None) -> NegotiationService:
+    return NegotiationService(
+        connections=UnusedConnections(),
+        negotiations=InMemoryNegotiations(
+            {
+                "negotiation_1": Negotiation(
+                    id="negotiation_1",
+                    from_agent_id="client_agent",
+                    to_agent_id="principal_agent",
+                    state=NegotiationState.OPEN,
+                    subject={"client_id": "client", "principal_id": "principal"},
+                )
+            }
+        ),
+        events=events or InMemoryEvents(),
+        represented_party_profiles_by_agent={"client_agent": [client_profile(), unrelated_client_profile()]},
         new_id=lambda: "unused",
         now=lambda: datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
     )
@@ -263,3 +298,29 @@ def test_agent_decision_context_exposes_available_and_disclosed_facts() -> None:
             }
         ]
     }
+
+
+def test_negotiation_context_excludes_unrelated_represented_parties() -> None:
+    """Protects INV-W-005, INV-F-001, and INV-H-004."""
+    service = make_multi_client_service()
+
+    context = service.get_agent_decision_context(agent_id="client_agent")
+
+    available = context["available_fact_disclosures_by_negotiation"]["negotiation_1"]
+    assert {record["represented_party_id"] for record in available} == {"client"}
+    assert {record["field"] for record in available} == {"salary_range", "career_path"}
+
+
+def test_disclose_fact_rejects_field_from_unrelated_represented_party() -> None:
+    """Protects INV-W-005 and INV-F-001."""
+    events = InMemoryEvents()
+    service = make_multi_client_service(events)
+
+    with pytest.raises(ProtocolViolation, match="unknown represented-party fact"):
+        service.disclose_facts(
+            negotiation_id="negotiation_1",
+            actor_agent_id="client_agent",
+            fields=["confidential_note"],
+        )
+
+    assert events.records == []
